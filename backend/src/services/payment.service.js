@@ -3,19 +3,26 @@ const crypto = require('crypto');
 const Order = require('../models/Order.model');
 const User = require('../models/User.model');
 
-exports.createRazorpayOrder = async (design, userId) => {
-    // Guard: prevent buying same design twice
-    const alreadyPurchased = await Order.findOne({
+exports.createRazorpayOrder = async (designs, userId) => {
+    // Collect IDs
+    const designIds = designs.map(d => d._id);
+
+    // Guard: prevent buying designs already purchased
+    const alreadyPurchasedCount = await Order.countDocuments({
         userId,
-        designId: design._id,
+        designIds: { $in: designIds },
         paymentStatus: 'success'
     });
-    if (alreadyPurchased) {
-        throw new Error('You have already purchased this design.');
+
+    if (alreadyPurchasedCount > 0) {
+        throw new Error('You have already purchased one or more of these designs.');
     }
 
+    // Calculate total amount
+    const totalAmount = designs.reduce((sum, design) => sum + design.price, 0);
+
     const options = {
-        amount: design.price * 100, // Amount in paise
+        amount: totalAmount * 100, // Amount in paise
         currency: "INR",
         receipt: `rcpt_${Date.now()}`
     };
@@ -25,8 +32,8 @@ exports.createRazorpayOrder = async (design, userId) => {
     // Save order in DB (pending)
     await Order.create({
         userId: userId,
-        designId: design._id,
-        amount: design.price,
+        designIds: designIds,
+        amount: totalAmount,
         orderId: order.id
     });
 
@@ -50,9 +57,10 @@ exports.verifyAndFulfillPayment = async (orderId, paymentId, signature, userId) 
         );
 
         if (order) {
-            // Add to user purchased library
+            // Add to user purchased library, and clear the cart!
             await User.findByIdAndUpdate(userId, {
-                $addToSet: { purchasedDesigns: order.designId }
+                $addToSet: { purchasedDesigns: { $each: order.designIds } },
+                $set: { cart: [] } // Clear cart on successful purchase
             });
         }
 

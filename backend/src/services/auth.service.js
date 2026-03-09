@@ -28,6 +28,67 @@ exports.getUserWithPurchases = async (userId) => {
     });
 };
 
+exports.toggleWishlist = async (userId, designId) => {
+    const user = await User.findById(userId);
+    if (!user) throw new Error('User not found');
+
+    const index = user.wishlist.indexOf(designId);
+    let isAdded = false;
+
+    if (index === -1) {
+        user.wishlist.push(designId);
+        isAdded = true;
+    } else {
+        user.wishlist.splice(index, 1);
+    }
+
+    await user.save({ validateBeforeSave: false });
+    return { wishlist: user.wishlist, isAdded };
+};
+
+exports.getUserWishlist = async (userId) => {
+    return await User.findById(userId).populate({
+        path: 'wishlist',
+        select: '+fileKey',
+        match: { isActive: true }, // Only return active designs
+        populate: { path: 'uploadedBy', select: 'name' }
+    });
+};
+
+exports.toggleCart = async (userId, designId) => {
+    const user = await User.findById(userId);
+    if (!user) throw new Error('User not found');
+
+    const index = user.cart.indexOf(designId);
+    let isAdded = false;
+
+    if (index === -1) {
+        user.cart.push(designId);
+        isAdded = true;
+    } else {
+        user.cart.splice(index, 1);
+    }
+
+    await user.save({ validateBeforeSave: false });
+    return { cart: user.cart, isAdded };
+};
+
+exports.getUserCart = async (userId) => {
+    return await User.findById(userId).populate({
+        path: 'cart',
+        select: '+fileKey',
+        match: { isActive: true },
+        populate: { path: 'uploadedBy', select: 'name' }
+    });
+};
+
+exports.clearCart = async (userId) => {
+    const user = await User.findById(userId);
+    user.cart = [];
+    await user.save({ validateBeforeSave: false });
+    return { cart: [] };
+};
+
 exports.createPasswordResetToken = async (email) => {
     const user = await User.findOne({ email });
     if (!user) return null; // We don't throw an error to prevent exact email enumeration

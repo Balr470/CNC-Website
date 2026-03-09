@@ -4,8 +4,8 @@ const designService = require('../services/design.service');
 // Get all basic designs (public route)
 exports.getAllDesigns = async (req, res) => {
     try {
-        const { category, search, sort, page, limit } = req.query;
-        const result = await designService.getAllDesigns({ category, search, sort, page, limit });
+        const { category, search, sort, page, limit, priceType, fileType } = req.query;
+        const result = await designService.getAllDesigns({ category, search, sort, page, limit, priceType, fileType });
 
         successResponse(res, 200, {
             results: result.designs.length,
@@ -96,3 +96,26 @@ exports.deleteDesign = async (req, res) => {
     }
 };
 
+// Update a design (Admin only)
+exports.updateDesign = async (req, res) => {
+    try {
+        const { title, description, price, category } = req.body;
+
+        const updatedDesign = await designService.updateDesign(req.params.id, {
+            ...(title && { title }),
+            ...(description && { description }),
+            ...(price !== undefined && { price: Number(price) }),
+            ...(category && { category }),
+        });
+
+        if (!updatedDesign) {
+            return errorResponse(res, 404, 'Design not found');
+        }
+
+        successResponse(res, 200, {
+            data: { design: updatedDesign }
+        });
+    } catch (error) {
+        errorResponse(res, 400, error.message);
+    }
+};

@@ -25,3 +25,8 @@ export const deleteDesign = async (designId) => {
     const response = await api.delete(`/designs/${designId}`);
     return response.data;
 };
+
+export const updateDesign = async (designId, updateData) => {
+    const response = await api.put(`/designs/${designId}`, updateData);
+    return response.data;
+};

@@ -149,3 +149,58 @@ exports.getMyPurchases = async (req, res) => {
     }
 };
 
+exports.toggleWishlist = async (req, res) => {
+    try {
+        const { id } = req.params; // designId
+        const result = await authService.toggleWishlist(req.user.id, id);
+        successResponse(res, 200, {
+            data: result
+        });
+    } catch (error) {
+        errorResponse(res, 400, error.message);
+    }
+};
+
+exports.getMyWishlist = async (req, res) => {
+    try {
+        const user = await authService.getUserWishlist(req.user.id);
+        successResponse(res, 200, {
+            data: { designs: user.wishlist }
+        });
+    } catch (error) {
+        errorResponse(res, 400, error.message);
+    }
+};
+
+exports.toggleCart = async (req, res) => {
+    try {
+        const { id } = req.params; // designId
+        const result = await authService.toggleCart(req.user.id, id);
+        successResponse(res, 200, {
+            data: result
+        });
+    } catch (error) {
+        errorResponse(res, 400, error.message);
+    }
+};
+
+exports.getMyCart = async (req, res) => {
+    try {
+        const user = await authService.getUserCart(req.user.id);
+        successResponse(res, 200, {
+            data: { designs: user.cart }
+        });
+    } catch (error) {
+        errorResponse(res, 400, error.message);
+    }
+};
+
+exports.clearCart = async (req, res) => {
+    try {
+        await authService.clearCart(req.user.id);
+        successResponse(res, 200, { message: 'Cart cleared successfully' });
+    } catch (error) {
+        errorResponse(res, 400, error.message);
+    }
+};
+

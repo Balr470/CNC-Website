@@ -6,11 +6,11 @@ const orderSchema = new mongoose.Schema({
         ref: 'User',
         required: true,
     },
-    designId: {
+    designIds: [{
         type: mongoose.Schema.ObjectId,
         ref: 'Design',
         required: true,
-    },
+    }],
     amount: {
         type: Number,
         required: true,
@@ -33,7 +33,8 @@ const orderSchema = new mongoose.Schema({
 
 // Fix #4: Index orderId for fast payment verification lookups
 orderSchema.index({ orderId: 1 });
-// Compound index for duplicate purchase guard query (userId + designId + paymentStatus)
-orderSchema.index({ userId: 1, designId: 1, paymentStatus: 1 });
+// Compound index for duplicate purchase guard query
+// Note: indexing arrays like designIds can be heavy, but it's ok for small cart sizes
+orderSchema.index({ userId: 1, designIds: 1, paymentStatus: 1 });
 
 module.exports = mongoose.model('Order', orderSchema);

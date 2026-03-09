@@ -42,30 +42,42 @@ const Home = () => {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState(searchParams.get('search') || '');
     const [sort, setSort] = useState('newest');
+    const [priceType, setPriceType] = useState('all');
+    const [fileType, setFileType] = useState('all');
+
     const [sortOpen, setSortOpen] = useState(false);
+    const [filterOpen, setFilterOpen] = useState(false);
+
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
     const searchTimer = useRef(null);
     const sortRef = useRef(null);
+    const filterRef = useRef(null);
 
-    // Close sort dropdown on outside click
+    // Close dropdowns on outside click
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (sortRef.current && !sortRef.current.contains(e.target)) {
                 setSortOpen(false);
+            }
+            if (filterRef.current && !filterRef.current.contains(e.target)) {
+                setFilterOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const fetchDesigns = useCallback(async (searchVal, sortVal, pageVal) => {
+    const fetchDesigns = useCallback(async (searchVal, sortVal, pageVal, priceVal, fileVal) => {
         setLoading(true);
         try {
             const params = new URLSearchParams();
             if (searchVal) params.set('search', searchVal);
             if (sortVal && sortVal !== 'newest') params.set('sort', sortVal);
+            if (priceVal && priceVal !== 'all') params.set('priceType', priceVal);
+            if (fileVal && fileVal !== 'all') params.set('fileType', fileVal);
+
             params.set('page', pageVal);
             params.set('limit', 12);
 
@@ -80,19 +92,27 @@ const Home = () => {
         }
     }, []);
 
-    // Re-fetch when sort or page changes — include fetchDesigns in deps (fix #2)
+    // Re-fetch when dependencies change
     useEffect(() => {
-        fetchDesigns(search, sort, page);
-    }, [sort, page, fetchDesigns]);
+        fetchDesigns(search, sort, page, priceType, fileType);
+    }, [sort, page, priceType, fileType, searchParams.get('search'), fetchDesigns]);
 
-    // Debounced search
+    // Update search state if URL params change (e.g. from navbar global search)
+    useEffect(() => {
+        const query = searchParams.get('search') || '';
+        if (query !== search) {
+            setSearch(query);
+        }
+    }, [searchParams]);
+
+    // Debounced search (local input)
     const handleSearch = (value) => {
         setSearch(value);
         setSearchParams(value ? { search: value } : {});
         setPage(1);
         clearTimeout(searchTimer.current);
         searchTimer.current = setTimeout(() => {
-            fetchDesigns(value, sort, 1);
+            fetchDesigns(value, sort, 1, priceType, fileType);
         }, 400);
     };
 
@@ -167,6 +187,49 @@ const Home = () => {
 
                     <div className="flex items-center gap-2 w-full sm:w-auto px-2 sm:px-0">
                         <div className="h-8 w-[1px] bg-gray-200 hidden sm:block mx-2"></div>
+
+                        {/* Filters Dropdown */}
+                        <div className="relative" ref={filterRef}>
+                            <button
+                                onClick={() => setFilterOpen(!filterOpen)}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 transition-colors whitespace-nowrap text-sm font-semibold shadow-sm"
+                            >
+                                Filters {(priceType !== 'all' || fileType !== 'all') && <span className="w-2 h-2 rounded-full bg-blue-500"></span>}
+                                <ChevronDown size={14} className={`transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {filterOpen && (
+                                <div className="absolute right-0 sm:left-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 p-4">
+                                    <div className="mb-4">
+                                        <label className="block text-xs font-bold text-gray-400 mb-2 tracking-widest">PRICE</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {['all', 'free', 'premium'].map(type => (
+                                                <button
+                                                    key={type}
+                                                    onClick={() => { setPriceType(type); setPage(1); }}
+                                                    className={`px-3 py-1.5 rounded-lg text-sm font-semibold capitalize ${priceType === type ? 'bg-blue-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                                                >
+                                                    {type}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 mb-2 tracking-widest">FILE FORMAT</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {['all', 'dxf', 'stl', 'svg'].map(type => (
+                                                <button
+                                                    key={type}
+                                                    onClick={() => { setFileType(type); setPage(1); }}
+                                                    className={`px-3 py-1.5 rounded-lg text-sm font-semibold capitalize ${fileType === type ? 'bg-black text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                                                >
+                                                    {type.toUpperCase()}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
 
                         {/* Sort Dropdown */}
                         <div className="relative" ref={sortRef}>

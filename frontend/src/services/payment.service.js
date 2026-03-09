@@ -15,8 +15,8 @@ export const loadRazorpayScript = () => {
     });
 };
 
-export const createOrder = async (designId) => {
-    const response = await api.post('/payments/orders', { designId });
+export const createOrder = async (designIds) => {
+    const response = await api.post('/payments/orders', { designIds });
     return response.data;
 };
 

@@ -29,6 +29,14 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.ObjectId,
         ref: 'Design',
     }],
+    wishlist: [{
+        type: mongoose.Schema.ObjectId,
+        ref: 'Design',
+    }],
+    cart: [{
+        type: mongoose.Schema.ObjectId,
+        ref: 'Design',
+    }],
     resetPasswordToken: String,
     resetPasswordExpire: Date
 }, {

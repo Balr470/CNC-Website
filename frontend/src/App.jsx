@@ -14,6 +14,8 @@ import UploadDesign from './pages/UploadDesign';
 import DesignDetails from './pages/DesignDetails';
 import AdminDashboard from './pages/AdminDashboard';
 import MyPurchases from './pages/MyPurchases';
+import MyWishlist from './pages/MyWishlist';
+import Cart from './pages/Cart';
 import NotFound from './pages/NotFound';
 import Category from './pages/Category';
 import ForgotPassword from './pages/ForgotPassword';
@@ -51,6 +53,18 @@ function App() {
               <Route path="/my-purchases" element={
                 <ProtectedRoute>
                   <MyPurchases />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/my-wishlist" element={
+                <ProtectedRoute>
+                  <MyWishlist />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/cart" element={
+                <ProtectedRoute>
+                  <Cart />
                 </ProtectedRoute>
               } />
 

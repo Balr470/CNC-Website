@@ -3,18 +3,26 @@ const cloudinary = require('../config/cloudinary');
 const uploadToR2 = require('../utils/uploadToR2');
 
 // Get all active designs with populated user info, optionally filtered by category/search/sort/page
-exports.getAllDesigns = async ({ category, search, sort, page, limit } = {}) => {
+exports.getAllDesigns = async ({ category, search, sort, page, limit, priceType, fileType } = {}) => {
     const filter = { isActive: true };
 
     if (category) {
         filter.category = new RegExp(`^${category}$`, 'i');
     }
     if (search) {
-        // Fix #9: search both title and description for better results
+        // Search both title and description for better results
         filter.$or = [
             { title: { $regex: search, $options: 'i' } },
             { description: { $regex: search, $options: 'i' } }
         ];
+    }
+    if (priceType === 'free') {
+        filter.price = 0;
+    } else if (priceType === 'premium') {
+        filter.price = { $gt: 0 };
+    }
+    if (fileType) {
+        filter.fileKey = new RegExp(`\\.${fileType}$`, 'i');
     }
 
     // Sorting
@@ -83,6 +91,11 @@ exports.createDesign = async (designData, previewFile, cncFile, userId) => {
         fileKey,
         uploadedBy: userId
     });
+};
+
+// Update a design
+exports.updateDesign = async (id, updateData) => {
+    return await Design.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
 };
 
 // Soft delete a design

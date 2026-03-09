@@ -2,31 +2,34 @@ const Design = require('../models/Design.model');
 const { successResponse, errorResponse, serverError } = require('../utils/responseHandler');
 const paymentService = require('../services/payment.service');
 
-// Create order for Razorpay UI
+// Create order for Razorpay UI (Single or Multiple items)
 exports.createOrder = async (req, res) => {
     try {
-        const { designId } = req.body;
+        const { designIds } = req.body;
 
-        if (!designId) {
-            return errorResponse(res, 400, 'Design ID is required');
+        if (!designIds || !Array.isArray(designIds) || designIds.length === 0) {
+            return errorResponse(res, 400, 'An array of designIds is required');
         }
 
-        // Find design
-        const design = await Design.findById(designId);
-        if (!design) {
-            return errorResponse(res, 404, 'Design not found');
+        // Find designs
+        const designs = await Design.find({ _id: { $in: designIds } });
+        if (designs.length !== designIds.length) {
+            return errorResponse(res, 404, 'One or more designs not found');
         }
 
-        if (design.price === 0) {
-            return errorResponse(res, 400, 'Design is free. Use direct download.');
+        // Filter out any free designs just in case they were passed (although free = download directly without razorpay)
+        const chargeableDesigns = designs.filter(d => d.price > 0);
+
+        if (chargeableDesigns.length === 0) {
+            return errorResponse(res, 400, 'No chargeable designs in request. Use direct download for free designs.');
         }
 
-        const order = await paymentService.createRazorpayOrder(design, req.user.id);
+        const order = await paymentService.createRazorpayOrder(chargeableDesigns, req.user.id);
 
         successResponse(res, 200, { order });
     } catch (error) {
         // Fix #2: duplicate purchase is a 400 client error, not a 500 server crash
-        if (error.message === 'You have already purchased this design.') {
+        if (error.message === 'You have already purchased one or more of these designs.') {
             return errorResponse(res, 400, error.message);
         }
         serverError(res, error);

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getDesignById, getDownloadLink, deleteDesign } from '../services/design.service';
+import { getDesignById, getDownloadLink, deleteDesign, updateDesign } from '../services/design.service';
 import { createOrder, verifyPayment, loadRazorpayScript } from '../services/payment.service';
 import { getDesignReviews, createReview } from '../services/review.service';
 import { AuthContext } from '../context/AuthContext';
+import { toggleWishlist, toggleCart } from '../services/auth.service';
 import PriceTag from '../components/PriceTag';
-import { Download, ShieldCheck, Clock, DownloadCloud, Trash2, CheckCircle2, Star, Share2, Heart, MessageSquare } from 'lucide-react';
+import { Download, ShieldCheck, Clock, DownloadCloud, Trash2, CheckCircle2, Star, Share2, Heart, MessageSquare, ShoppingCart, Edit3, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import NotFound from './NotFound';
 import placeholderImg from '../assets/wood_part_placeholder.png';
@@ -31,7 +32,12 @@ const DesignDetails = () => {
     const [design, setDesign] = useState(null);
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
-    const [liked, setLiked] = useState(false); // Fix #8: local like toggle state
+    const [liked, setLiked] = useState(false);
+    const [togglingWishlist, setTogglingWishlist] = useState(false);
+
+    // Cart state
+    const [inCart, setInCart] = useState(false);
+    const [togglingCart, setTogglingCart] = useState(false);
 
     // Reviews state
     const [reviews, setReviews] = useState([]);
@@ -39,6 +45,11 @@ const DesignDetails = () => {
     const [myRating, setMyRating] = useState(5);
     const [myComment, setMyComment] = useState('');
     const [submittingReview, setSubmittingReview] = useState(false);
+
+    // Edit state (Admin)
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editForm, setEditForm] = useState({ title: '', description: '', price: 0, category: '' });
+    const [updatingDesign, setUpdatingDesign] = useState(false);
 
     useEffect(() => {
         const fetchDesign = async () => {
@@ -58,6 +69,41 @@ const DesignDetails = () => {
         };
         fetchDesign();
     }, [id]);
+
+    useEffect(() => {
+        if (user && design) {
+            const isLiked = (user.wishlist || []).some(wId => wId.toString() === design._id.toString());
+            setLiked(isLiked);
+
+            const isCart = (user.cart || []).some(cId => cId.toString() === design._id.toString());
+            setInCart(isCart);
+        }
+    }, [user, design]);
+
+    const handleToggleWishlist = async () => {
+        if (!user) {
+            toast.error('Please login to save designs to your wishlist');
+            navigate('/login');
+            return;
+        }
+
+        try {
+            setTogglingWishlist(true);
+            const data = await toggleWishlist(id);
+            setLiked(data.data.isAdded);
+            if (data.data.isAdded) {
+                toast.success('Added to wishlist');
+            } else {
+                toast.success('Removed from wishlist');
+            }
+            // Refresh user so that AuthContext is up to date
+            await refreshUser();
+        } catch (error) {
+            toast.error(error.message || 'Failed to update wishlist');
+        } finally {
+            setTogglingWishlist(false);
+        }
+    };
 
     const handleDownloadFree = async () => {
         if (!user) {
@@ -106,6 +152,30 @@ const DesignDetails = () => {
         }
     };
 
+    const handleToggleCart = async () => {
+        if (!user) {
+            toast.error('Please login to add designs to cart');
+            navigate('/login');
+            return;
+        }
+
+        try {
+            setTogglingCart(true);
+            const data = await toggleCart(id);
+            setInCart(data.data.isAdded);
+            if (data.data.isAdded) {
+                toast.success('Added to Cart!');
+            } else {
+                toast.success('Removed from Cart');
+            }
+            await refreshUser();
+        } catch (error) {
+            toast.error(error.message || 'Failed to update cart');
+        } finally {
+            setTogglingCart(false);
+        }
+    };
+
     const handleDelete = async () => {
         if (!window.confirm('Are you sure you want to delete this design? Users who purchased it will still have access, but it will be removed from the store.')) {
             return;
@@ -119,6 +189,31 @@ const DesignDetails = () => {
         } catch (error) {
             toast.error(error.message || 'Failed to delete design');
             setProcessing(false);
+        }
+    };
+
+    const handleEditOpen = () => {
+        setEditForm({
+            title: design.title,
+            description: design.description,
+            price: design.price,
+            category: design.category,
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const handleEditSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            setUpdatingDesign(true);
+            const res = await updateDesign(id, editForm);
+            setDesign(res.data.design);
+            toast.success('Design updated successfully!');
+            setIsEditModalOpen(false);
+        } catch (error) {
+            toast.error(error.message || 'Failed to update design');
+        } finally {
+            setUpdatingDesign(false);
         }
     };
 
@@ -138,7 +233,8 @@ const DesignDetails = () => {
                 return;
             }
 
-            const orderData = await createOrder(id);
+            // Fix #14: Pass design ID inside an array to conform to multi-item cart standard
+            const orderData = await createOrder([id]);
 
             const options = {
                 key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'dummy_key', // From env config
@@ -227,10 +323,11 @@ const DesignDetails = () => {
                                 )}
                             </div>
 
-                            {/* Fix #8: Like button with local toggle state + visual feedback */}
+                            {/* Fix #8: Like button connected to backed wishlist state */}
                             <button
-                                onClick={() => setLiked(l => !l)}
-                                className={`absolute top-6 right-6 w-10 h-10 bg-white shadow-md rounded-full flex items-center justify-center hover:scale-110 transition-all z-10 border ${liked ? 'text-red-500 border-red-100 bg-red-50' : 'text-gray-400 border-gray-100 hover:text-red-500'
+                                onClick={handleToggleWishlist}
+                                disabled={togglingWishlist}
+                                className={`absolute top-6 right-6 w-10 h-10 bg-white shadow-md rounded-full flex items-center justify-center hover:scale-110 transition-all z-10 border disabled:opacity-50 disabled:cursor-wait ${liked ? 'text-red-500 border-red-100 bg-red-50' : 'text-gray-400 border-gray-100 hover:text-red-500'
                                     }`}
                                 title={liked ? 'Remove from wishlist' : 'Add to wishlist'}
                             >
@@ -303,13 +400,22 @@ const DesignDetails = () => {
                             </div>
 
                             {user?.role === 'admin' && (
-                                <button
-                                    onClick={handleDelete}
-                                    disabled={processing}
-                                    className="w-full mb-6 py-4 flex items-center justify-center gap-2 rounded-2xl font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors border border-red-100"
-                                >
-                                    <Trash2 size={18} /> Delete Design from Store
-                                </button>
+                                <div className="flex gap-3 w-full mb-6">
+                                    <button
+                                        onClick={handleEditOpen}
+                                        disabled={processing}
+                                        className="flex-1 py-4 flex items-center justify-center gap-2 rounded-2xl font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors border border-blue-100"
+                                    >
+                                        <Edit3 size={18} /> Edit
+                                    </button>
+                                    <button
+                                        onClick={handleDelete}
+                                        disabled={processing}
+                                        className="flex-1 py-4 flex items-center justify-center gap-2 rounded-2xl font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors border border-red-100"
+                                    >
+                                        <Trash2 size={18} /> Delete
+                                    </button>
+                                </div>
                             )}
 
                             <div>
@@ -338,20 +444,31 @@ const DesignDetails = () => {
                                         <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold tracking-wider">READY</span>
                                     </button>
                                 ) : (
-                                    // Fix #8: removed dead "Add to Cart" button, kept only functional Buy Now
-                                    <button
-                                        onClick={handleCheckout}
-                                        disabled={processing}
-                                        className="w-full flex items-center justify-between px-6 py-4 rounded-full font-bold text-lg cursor-pointer transition-all bg-blue-600 text-white hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/20 hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed"
-                                    >
-                                        <span className="flex items-center gap-2 text-[15px]">
-                                            {processing && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
-                                            Buy Now
-                                        </span>
-                                        <div className="bg-white text-blue-600 px-4 py-1.5 rounded-full shadow-sm">
-                                            <PriceTag price={design.price} />
-                                        </div>
-                                    </button>
+                                    <div className="flex flex-col gap-3">
+                                        <button
+                                            onClick={handleToggleCart}
+                                            disabled={togglingCart || processing}
+                                            className={`w-full flex items-center justify-center gap-2 px-6 py-4 rounded-full font-bold text-lg cursor-pointer transition-all disabled:opacity-70 disabled:cursor-not-allowed ${inCart ? 'bg-gray-100 text-gray-900 hover:bg-gray-200 border border-gray-200' : 'bg-white text-gray-900 hover:bg-gray-50 border-2 border-gray-200 hover:border-black'
+                                                }`}
+                                        >
+                                            {togglingCart ? <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin"></div> : <ShoppingCart size={20} className={inCart ? "fill-gray-900" : ""} />}
+                                            {inCart ? 'Remove from Cart' : 'Add to Cart'}
+                                        </button>
+
+                                        <button
+                                            onClick={handleCheckout}
+                                            disabled={processing}
+                                            className="w-full flex items-center justify-between px-6 py-4 rounded-full font-bold text-lg cursor-pointer transition-all bg-blue-600 text-white hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/20 hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed"
+                                        >
+                                            <span className="flex items-center gap-2 text-[15px]">
+                                                {processing && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
+                                                Buy Now Directly
+                                            </span>
+                                            <div className="bg-white text-blue-600 px-4 py-1.5 rounded-full shadow-sm">
+                                                <PriceTag price={design.price} />
+                                            </div>
+                                        </button>
+                                    </div>
                                 )}
 
                                 <p className="text-center font-medium text-xs text-gray-400 mt-6 flex items-center justify-center gap-1.5">
@@ -457,6 +574,99 @@ const DesignDetails = () => {
                 </div>
 
             </div>
+
+            {/* Edit Design Modal */}
+            {isEditModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="flex justify-between items-center p-6 border-b border-gray-100 shrink-0">
+                            <h2 className="text-xl font-black text-gray-900">Edit Design Details</h2>
+                            <button
+                                onClick={() => setIsEditModalOpen(false)}
+                                className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto grow">
+                            <form id="editDesignForm" onSubmit={handleEditSubmit} className="space-y-5">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2 tracking-wide">Title</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={editForm.title}
+                                        onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-gray-900"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2 tracking-wide">Category</label>
+                                        <select
+                                            required
+                                            value={editForm.category}
+                                            onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-gray-900 capitalize"
+                                        >
+                                            <option value="routers">Routers</option>
+                                            <option value="spindles">Spindles</option>
+                                            <option value="carvings">Carvings</option>
+                                            <option value="furniture">Furniture</option>
+                                            <option value="reliefs">Reliefs</option>
+                                            <option value="v-bits">V-Bits</option>
+                                            <option value="other">Other</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2 tracking-wide">Price (₹)</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            required
+                                            value={editForm.price}
+                                            onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
+                                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-gray-900"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2 tracking-wide">Description</label>
+                                    <textarea
+                                        required
+                                        rows="5"
+                                        value={editForm.description}
+                                        onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-gray-900 resize-none"
+                                    ></textarea>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div className="p-6 border-t border-gray-100 flex gap-3 shrink-0 bg-gray-50">
+                            <button
+                                onClick={() => setIsEditModalOpen(false)}
+                                type="button"
+                                className="flex-1 py-3.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold text-[15px] hover:bg-gray-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                form="editDesignForm"
+                                type="submit"
+                                disabled={updatingDesign}
+                                className="flex-1 py-3.5 bg-blue-600 text-white rounded-xl font-bold text-[15px] hover:bg-blue-700 shadow-md transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {updatingDesign && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 };

@@ -1,7 +1,7 @@
 import React, { useState, useContext, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { LogOut, Upload, BarChart3, ShoppingBag, Menu, X } from 'lucide-react';
+import { LogOut, Upload, BarChart3, ShoppingBag, Heart, ShoppingCart, Menu, X, Search } from 'lucide-react';
 
 const Navbar = () => {
     const { user, logout } = useContext(AuthContext);
@@ -9,6 +9,7 @@ const Navbar = () => {
     const location = useLocation();
     const [mobileOpen, setMobileOpen] = useState(false);
     const [profileOpen, setProfileOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     const profileRef = useRef(null);
 
     // Fix #3: close profile dropdown on outside click — removes the blocking full-screen overlay div
@@ -27,6 +28,15 @@ const Navbar = () => {
         setMobileOpen(false);
         setProfileOpen(false);
         navigate('/');
+    };
+
+    const handleSearchSubmit = (e) => {
+        e.preventDefault();
+        if (searchQuery.trim()) {
+            navigate(`/?search=${encodeURIComponent(searchQuery.trim())}`);
+        } else {
+            navigate('/');
+        }
     };
 
     const isHome = location.pathname === '/';
@@ -56,23 +66,48 @@ const Navbar = () => {
                         </Link>
                     </div>
 
-                    {/* Desktop Category Links */}
-                    <div className="hidden lg:flex items-center justify-center flex-1 gap-8">
+                    {/* Desktop Category Links & Search */}
+                    <div className="hidden lg:flex items-center justify-center flex-1 gap-6 px-4">
                         {navLinks.map((link) => (
                             <Link
                                 key={link.path}
                                 to={link.path}
-                                className={`text-[13px] font-bold tracking-widest transition-colors ${location.pathname === link.path ? 'text-black' : 'text-gray-500 hover:text-black'}`}
+                                className={`text-[12px] font-bold tracking-widest transition-colors ${location.pathname === link.path ? 'text-black' : 'text-gray-500 hover:text-black'}`}
                             >
                                 {link.name}
                             </Link>
                         ))}
+
+                        {/* Global Search */}
+                        <form onSubmit={handleSearchSubmit} className="relative hidden xl:block ml-4">
+                            <input
+                                type="text"
+                                placeholder="Search designs, parts..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-48 xl:w-64 bg-gray-50/80 hover:bg-gray-100 border border-transparent focus:border-gray-200 focus:bg-white text-sm rounded-full pl-10 pr-4 py-2 outline-none transition-all placeholder-gray-400 font-medium text-gray-700"
+                            />
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+                        </form>
                     </div>
 
                     {/* Right Actions */}
                     <div className="flex-none flex items-center gap-3">
                         {user ? (
                             <div className="flex items-center gap-3">
+                                <Link to="/cart" className="relative hidden sm:inline-flex px-3.5 py-2 hover:bg-blue-50 text-gray-400 hover:text-blue-500 rounded-full transition-colors items-center gap-2" title="Cart">
+                                    <ShoppingCart size={18} />
+                                    {user.cart && user.cart.length > 0 && (
+                                        <span className="absolute top-0 right-0 -mt-1 -mr-1 bg-blue-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">
+                                            {user.cart.length}
+                                        </span>
+                                    )}
+                                </Link>
+
+                                <Link to="/my-wishlist" className="hidden sm:inline-flex px-3.5 py-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-full transition-colors items-center gap-2" title="Wishlist">
+                                    <Heart size={18} />
+                                </Link>
+
                                 <Link to="/my-purchases" className="hidden sm:inline-flex px-4 py-2 bg-gray-100 hover:bg-gray-200 text-black text-sm font-bold rounded-full transition-colors items-center gap-2">
                                     <ShoppingBag size={14} /> My Files
                                 </Link>
@@ -95,6 +130,9 @@ const Navbar = () => {
 
                                             <Link to="/my-purchases" onClick={() => setProfileOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:text-black hover:bg-gray-50 transition-colors sm:hidden">
                                                 <ShoppingBag size={16} /> My Files
+                                            </Link>
+                                            <Link to="/my-wishlist" onClick={() => setProfileOpen(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:text-red-500 hover:bg-red-50 transition-colors sm:hidden">
+                                                <Heart size={16} /> Wishlist
                                             </Link>
 
                                             {user.role === 'admin' && (
@@ -138,8 +176,21 @@ const Navbar = () => {
 
             {/* Mobile Slide-down Menu */}
             {mobileOpen && (
-                <div className="lg:hidden fixed top-[65px] left-0 right-0 z-40 bg-white border-b border-gray-100 shadow-xl px-4 py-6">
+                <div className="lg:hidden fixed top-[65px] left-0 right-0 z-40 bg-white border-b border-gray-100 shadow-xl px-4 py-6 overflow-y-auto max-h-[80vh]">
                     <div className="max-w-[1400px] mx-auto space-y-1">
+
+                        {/* Mobile Global Search */}
+                        <form onSubmit={(e) => { handleSearchSubmit(e); setMobileOpen(false); }} className="relative mb-6">
+                            <input
+                                type="text"
+                                placeholder="Search designs..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full bg-gray-50 border border-gray-100 focus:border-blue-500 focus:bg-white text-base rounded-2xl pl-12 pr-4 py-4 outline-none transition-all placeholder-gray-400 font-medium text-gray-700"
+                            />
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={20} />
+                        </form>
+
                         <p className="text-[11px] font-black tracking-widest text-gray-400 px-3 mb-3">CATEGORIES</p>
                         {navLinks.map((link) => (
                             <Link
@@ -157,8 +208,19 @@ const Navbar = () => {
 
                         {user ? (
                             <>
+                                <Link to="/cart" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-500 transition-colors">
+                                    <ShoppingCart size={16} /> Cart
+                                    {user.cart && user.cart.length > 0 && (
+                                        <span className="bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ml-auto">
+                                            {user.cart.length}
+                                        </span>
+                                    )}
+                                </Link>
                                 <Link to="/my-purchases" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-black transition-colors">
                                     <ShoppingBag size={16} /> My Files
+                                </Link>
+                                <Link to="/my-wishlist" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-red-50 hover:text-red-500 transition-colors">
+                                    <Heart size={16} /> Wishlist
                                 </Link>
                                 {user.role === 'admin' && (
                                     <>

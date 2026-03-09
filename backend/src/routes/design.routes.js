@@ -21,6 +21,7 @@ router.route('/')
 
 router.route('/:id')
     .get(designController.getDesign)
+    .put(protect, restrictToAdmin, designController.updateDesign)
     .delete(protect, restrictToAdmin, designController.deleteDesign);
 
 module.exports = router;
