@@ -633,13 +633,24 @@ const DesignDetails = () => {
                                             onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                                             className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-gray-900 capitalize"
                                         >
-                                            <option value="routers">Routers</option>
-                                            <option value="spindles">Spindles</option>
-                                            <option value="carvings">Carvings</option>
-                                            <option value="furniture">Furniture</option>
-                                            <option value="reliefs">Reliefs</option>
-                                            <option value="v-bits">V-Bits</option>
-                                            <option value="other">Other</option>
+                                            <option value="routers">Wood Routers</option>
+                                            <option value="spindles">Spindles & Turning</option>
+                                            <option value="carvings">3D Carvings / Bas Reliefs</option>
+                                            <option value="furniture">Furniture Plans</option>
+                                            <option value="reliefs">Panel Reliefs</option>
+                                            <option value="v-bits">V-Bit Engraving</option>
+                                            <option value="2d-designs">2D Designs</option>
+                                            <option value="2d-grill-designs">2D Grill Designs</option>
+                                            <option value="3d-designs">3D Designs</option>
+                                            <option value="3d-traditional">3D Traditional Designs</option>
+                                            <option value="temple-designs">Temple Designs</option>
+                                            <option value="3d-doors-design">3D Doors Design</option>
+                                            <option value="3d-modern-panel-doors">3D Modern Panel Doors</option>
+                                            <option value="3d-latest-panel-door">3D Latest Panel Door</option>
+                                            <option value="3d-borderless-mdf-door">3D Borderless MDF Door</option>
+                                            <option value="3d-traditional-panel-door">3D Traditional Panel Door</option>
+                                            <option value="3d-unique-door">3D Unique Door</option>
+                                            <option value="other">Other / General</option>
                                         </select>
                                     </div>
                                     <div>
