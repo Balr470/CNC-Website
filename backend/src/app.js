@@ -115,6 +115,10 @@ app.use(hpp({
     whitelist: ['sort', 'category', 'fileType', 'priceType', 'limit', 'page'],
 }));
 
+// ─── Health Check & Keep-Alive ────────────────────────────────────────────────
+app.get('/', (req, res) => res.status(200).json({ status: 'live', message: 'CNC Backend is running' }));
+app.get('/api/health', (req, res) => res.status(200).json({ status: 'live' }));
+
 // ─── API Routes ───────────────────────────────────────────────────────────────
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/designs', designRouter);
