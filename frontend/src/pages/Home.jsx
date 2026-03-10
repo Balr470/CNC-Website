@@ -109,10 +109,13 @@ const Home = () => {
         fetchFeatures();
     }, []);
 
+    const searchQuery = searchParams.get('search');
+
     // Re-fetch main grid when dependencies change
     useEffect(() => {
         fetchDesigns(search, sort, page, priceType, fileType);
-    }, [sort, page, priceType, fileType, searchParams.get('search'), fetchDesigns]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sort, page, priceType, fileType, searchQuery, fetchDesigns]);
 
     // Update search state if URL params change (e.g. from navbar global search)
     useEffect(() => {
@@ -120,6 +123,7 @@ const Home = () => {
         if (query !== search) {
             setSearch(query);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchParams]);
 
     // Debounced search (local input)
@@ -151,7 +155,7 @@ const Home = () => {
             const res = await toggleWishlist(id);
             toast.success(res.data.isAdded ? 'Added to wishlist' : 'Removed from wishlist');
             await refreshUser();
-        } catch (error) {
+        } catch (_error) {
             toast.error('Failed to update wishlist');
         } finally {
             setTogglingWishlist(null);

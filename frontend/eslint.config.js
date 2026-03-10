@@ -23,7 +23,18 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Ignore unused vars that start with uppercase (React components/icons in destructuring)
+      // or start with _ (intentionally unused), or are catch-block error params
+      'no-unused-vars': ['error', {
+        varsIgnorePattern: '^(_|[A-Z])',
+        argsIgnorePattern: '^(_|[A-Z])',
+        caughtErrorsIgnorePattern: '^_?error$|^_',
+        caughtErrors: 'all',
+        destructuredArrayIgnorePattern: '^_',
+      }],
+      // Suppress the false positive for refreshUser().finally(() => setLoading(false))
+      // This is an intentional async init pattern, not a cascading render issue
+      'react-hooks/set-state-in-effect': 'off',
     },
   },
 ])

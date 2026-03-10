@@ -1,0 +1,7 @@
+{
+    // Suppress false-positive CSS warnings for Tailwind v4 @plugin syntax
+    // and non-standard user-drag property used in .no-drag utility
+    "css.lint.unknownAtRules": "ignore",
+    "css.lint.unknownProperties": "ignore",
+    "scss.lint.unknownAtRules": "ignore"
+}
