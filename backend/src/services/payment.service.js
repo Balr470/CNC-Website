@@ -124,25 +124,30 @@ exports.verifyAndFulfillPayment = async (sessionId, userId) => {
         const session = await stripe.checkout.sessions.retrieve(sessionId);
 
         if (session.payment_status === 'paid') {
-            // Payment Successful
-            // Update Order Status
             const order = await Order.findOne({ orderId: sessionId });
 
-            if (order && order.paymentStatus !== 'success') {
+            if (!order) return false;
+
+            // ✅ SECURITY: Cross-check that this order was created by the requesting user.
+            // Prevents user A from claiming user B's purchase by guessing session IDs.
+            if (order.userId.toString() !== userId.toString()) {
+                throw new Error('Unauthorized: This order does not belong to you.');
+            }
+
+            if (order.paymentStatus !== 'success') {
                 order.paymentStatus = 'success';
                 order.paymentId = session.payment_intent || session.id;
                 await order.save();
 
-                // Add to user purchased library, and clear the cart!
+                // Add designs to user library and clear their cart
                 await User.findByIdAndUpdate(userId, {
                     $addToSet: { purchasedDesigns: { $each: order.designIds } },
-                    $set: { cart: [] } // Clear cart on successful purchase
+                    $set: { cart: [] }
                 });
             }
 
             return true;
         } else {
-            // Payment Failed or Pending
             await Order.findOneAndUpdate(
                 { orderId: sessionId },
                 { paymentStatus: 'failed', paymentId: session.payment_intent || session.id }
@@ -150,6 +155,8 @@ exports.verifyAndFulfillPayment = async (sessionId, userId) => {
             return false;
         }
     } catch (error) {
+        // Re-throw authorization errors rather than silently swallowing them
+        if (error.message && error.message.startsWith('Unauthorized')) throw error;
         console.error('Stripe verification error:', error);
         return false;
     }
@@ -196,22 +203,25 @@ exports.verifyAndFulfillSubscription = async (sessionId, userId) => {
     try {
         const session = await stripe.checkout.sessions.retrieve(sessionId);
 
-        // Check if payment was successful
         if (session.payment_status === 'paid') {
-            const downloadsGrant = parseInt(session.metadata.downloadsGrant || 20);
+            // ✅ SECURITY: downloadsGrant comes from server-side config, NOT from
+            // session.metadata (which could be tampered with by a malicious client).
+            const downloadsGrant = 20; // Server-side source of truth
+
             const user = await User.findById(userId);
 
             if (user) {
-                // Determine end period (e.g. 30 days from now)
                 const currentPeriodEnd = new Date();
                 currentPeriodEnd.setDate(currentPeriodEnd.getDate() + 30);
+
+                const isNewSubscription = !user.stripeSubscriptionId ||
+                    user.stripeSubscriptionId !== session.subscription;
 
                 user.stripeCustomerId = session.customer;
                 user.stripeSubscriptionId = session.subscription;
                 user.subscriptionStatus = 'active';
-                // Only renew limits if this is the first time verifying this session
-                // In production, rely on webhooks, but this lets us test immediately
-                if (!user.stripeSubscriptionId || user.stripeSubscriptionId !== session.subscription) {
+                // Only credit downloads once per new subscription/renewal
+                if (isNewSubscription) {
                     user.downloadsRemaining += downloadsGrant;
                 }
                 user.subscriptionPeriodEnd = currentPeriodEnd;
