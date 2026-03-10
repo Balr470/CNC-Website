@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getAdminStats, getAdminUsers, updateUserRole } from '../services/admin.service';
-import { Users, FileBox, IndianRupee, Database, Image as ImageIcon, Cloud, BarChart3, AlertTriangle, Search, ChevronLeft, ChevronRight, ShieldCheck, Shield, X } from 'lucide-react';
+import { Users, FileBox, IndianRupee, Database, Image as ImageIcon, Cloud, BarChart3, AlertTriangle, Search, ChevronLeft, ChevronRight, ShieldCheck, Shield, X, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
@@ -38,17 +38,27 @@ const StatCard = ({ title, value, subValue, icon: Icon, color, isWarning }) => {
 const UserManagement = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
     const [updatingId, setUpdatingId] = useState(null);
-    const searchTimer = useRef(null);
+    const [filtersOpen, setFiltersOpen] = useState(false);
 
-    const fetchUsers = useCallback(async (p, s) => {
+    // Draft filter values (inside the panel)
+    const [search, setSearch] = useState('');
+    const [role, setRole] = useState('');
+    const [subscription, setSubscription] = useState('');
+    const [sortBy, setSortBy] = useState('newest');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
+
+    // Committed (applied) filters — what the API actually uses
+    const [applied, setApplied] = useState({ search: '', role: '', subscription: '', sortBy: 'newest', dateFrom: '', dateTo: '' });
+
+    const fetchUsers = useCallback(async (p, filters) => {
         setLoading(true);
         try {
-            const data = await getAdminUsers(p, s);
+            const data = await getAdminUsers({ page: p, ...filters });
             setUsers(data.users || []);
             setTotalPages(data.pages || 1);
             setTotal(data.total || 0);
@@ -60,14 +70,34 @@ const UserManagement = () => {
     }, []);
 
     useEffect(() => {
-        fetchUsers(page, search);
-    }, [page, fetchUsers]);
+        fetchUsers(page, applied);
+    }, [page, applied, fetchUsers]);
 
-    const handleSearch = (value) => {
-        setSearch(value);
+    const applyFilters = () => {
+        const next = { search, role, subscription, sortBy, dateFrom, dateTo };
+        setApplied(next);
         setPage(1);
-        clearTimeout(searchTimer.current);
-        searchTimer.current = setTimeout(() => fetchUsers(1, value), 400);
+        setFiltersOpen(false);
+    };
+
+    const resetFilters = () => {
+        setSearch(''); setRole(''); setSubscription('');
+        setSortBy('newest'); setDateFrom(''); setDateTo('');
+        const cleared = { search: '', role: '', subscription: '', sortBy: 'newest', dateFrom: '', dateTo: '' };
+        setApplied(cleared);
+        setPage(1);
+    };
+
+    const removeFilter = (key, defaultVal = '') => {
+        const updates = { [key]: defaultVal };
+        if (key === 'search') setSearch('');
+        if (key === 'role') setRole('');
+        if (key === 'subscription') setSubscription('');
+        if (key === 'sortBy') { setSortBy('newest'); updates.sortBy = 'newest'; }
+        if (key === 'dateFrom') setDateFrom('');
+        if (key === 'dateTo') setDateTo('');
+        setApplied(a => ({ ...a, ...updates }));
+        setPage(1);
     };
 
     const handleRoleToggle = async (user) => {
@@ -84,9 +114,13 @@ const UserManagement = () => {
         }
     };
 
+    const activeFiltersCount = [applied.search, applied.role, applied.subscription, applied.dateFrom, applied.dateTo].filter(Boolean).length
+        + (applied.sortBy !== 'newest' ? 1 : 0);
+
     return (
         <div className="mt-16">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
                 <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3">
                     <span className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
                         <Users size={14} className="text-blue-600" />
@@ -94,24 +128,99 @@ const UserManagement = () => {
                     User Management
                     <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2.5 py-1 rounded-full">{total}</span>
                 </h2>
-
-                {/* Search */}
-                <div className="flex items-center bg-white border border-gray-200 rounded-xl px-4 py-2.5 shadow-sm w-full sm:w-72 gap-2">
-                    <Search size={16} className="text-gray-400 shrink-0" />
-                    <input
-                        type="text"
-                        placeholder="Search by name or email..."
-                        value={search}
-                        onChange={e => handleSearch(e.target.value)}
-                        className="bg-transparent border-none outline-none text-sm font-medium text-gray-700 placeholder-gray-400 w-full"
-                    />
-                    {search && (
-                        <button onClick={() => handleSearch('')} className="text-gray-400 hover:text-black">
-                            <X size={14} />
+                <div className="flex items-center gap-2">
+                    {activeFiltersCount > 0 && (
+                        <button onClick={resetFilters} className="flex items-center gap-1.5 text-xs font-bold text-red-500 hover:text-red-700 border border-red-200 bg-red-50 px-3 py-2 rounded-xl transition-colors">
+                            <X size={12} /> Clear All ({activeFiltersCount})
                         </button>
                     )}
+                    <button
+                        onClick={() => setFiltersOpen(o => !o)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition-colors ${filtersOpen ? 'bg-black text-white border-black' : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'}`}
+                    >
+                        <Filter size={14} />
+                        Advanced Search
+                        {activeFiltersCount > 0 && (
+                            <span className="bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-black">{activeFiltersCount}</span>
+                        )}
+                    </button>
                 </div>
             </div>
+
+            {/* Advanced Filter Panel */}
+            {filtersOpen && (
+                <div className="bg-white rounded-[1.5rem] border border-gray-200 shadow-sm p-6 mb-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="sm:col-span-2 lg:col-span-1">
+                            <label className="block text-xs font-bold text-gray-500 mb-2 tracking-wider">SEARCH</label>
+                            <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 gap-2">
+                                <Search size={14} className="text-gray-400 shrink-0" />
+                                <input
+                                    type="text"
+                                    placeholder="Name or email..."
+                                    value={search}
+                                    onChange={e => setSearch(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && applyFilters()}
+                                    className="bg-transparent border-none outline-none text-sm font-medium text-gray-700 placeholder-gray-400 w-full"
+                                />
+                                {search && <button onClick={() => setSearch('')}><X size={12} className="text-gray-400 hover:text-black" /></button>}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-2 tracking-wider">ROLE</label>
+                            <select value={role} onChange={e => setRole(e.target.value)} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:border-blue-500">
+                                <option value="">All Roles</option>
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-2 tracking-wider">SUBSCRIPTION</label>
+                            <select value={subscription} onChange={e => setSubscription(e.target.value)} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:border-blue-500">
+                                <option value="">All</option>
+                                <option value="active">Active</option>
+                                <option value="none">No Subscription</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-2 tracking-wider">SORT BY</label>
+                            <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:border-blue-500">
+                                <option value="newest">Newest First</option>
+                                <option value="oldest">Oldest First</option>
+                                <option value="purchases">Most Purchases</option>
+                                <option value="name_asc">Name A → Z</option>
+                                <option value="name_desc">Name Z → A</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-2 tracking-wider">JOINED FROM</label>
+                            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:border-blue-500" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-2 tracking-wider">JOINED UNTIL</label>
+                            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:border-blue-500" />
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t border-gray-100">
+                        <button onClick={resetFilters} className="px-5 py-2 text-sm font-bold text-gray-500 hover:text-black transition-colors">Reset</button>
+                        <button onClick={applyFilters} className="px-6 py-2.5 bg-black text-white rounded-xl text-sm font-bold hover:bg-gray-900 transition-colors flex items-center gap-2">
+                            <Search size={14} /> Apply Filters
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Active filter badge chips */}
+            {activeFiltersCount > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                    {applied.search && <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-100 text-xs font-bold px-3 py-1.5 rounded-full">Search: "{applied.search}" <button onClick={() => removeFilter('search')}><X size={10} /></button></span>}
+                    {applied.role && <span className="inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 border border-purple-100 text-xs font-bold px-3 py-1.5 rounded-full">Role: {applied.role} <button onClick={() => removeFilter('role')}><X size={10} /></button></span>}
+                    {applied.subscription && <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 border border-green-100 text-xs font-bold px-3 py-1.5 rounded-full">Sub: {applied.subscription} <button onClick={() => removeFilter('subscription')}><X size={10} /></button></span>}
+                    {applied.sortBy !== 'newest' && <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 border border-gray-200 text-xs font-bold px-3 py-1.5 rounded-full">Sort: {applied.sortBy} <button onClick={() => removeFilter('sortBy', 'newest')}><X size={10} /></button></span>}
+                    {applied.dateFrom && <span className="inline-flex items-center gap-1.5 bg-orange-50 text-orange-700 border border-orange-100 text-xs font-bold px-3 py-1.5 rounded-full">From: {applied.dateFrom} <button onClick={() => removeFilter('dateFrom')}><X size={10} /></button></span>}
+                    {applied.dateTo && <span className="inline-flex items-center gap-1.5 bg-orange-50 text-orange-700 border border-orange-100 text-xs font-bold px-3 py-1.5 rounded-full">Until: {applied.dateTo} <button onClick={() => removeFilter('dateTo')}><X size={10} /></button></span>}
+                </div>
+            )}
 
             {/* Table */}
             <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
@@ -144,7 +253,7 @@ const UserManagement = () => {
                             ) : users.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="text-center py-16 text-gray-400 font-medium">
-                                        No users found{search && ` for "${search}"`}
+                                        No users match your filters
                                     </td>
                                 </tr>
                             ) : (
@@ -197,18 +306,10 @@ const UserManagement = () => {
                             Page <span className="font-bold text-gray-700">{page}</span> of <span className="font-bold text-gray-700">{totalPages}</span>
                         </p>
                         <div className="flex gap-2">
-                            <button
-                                disabled={page === 1}
-                                onClick={() => setPage(p => p - 1)}
-                                className="w-9 h-9 rounded-xl border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                            >
+                            <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="w-9 h-9 rounded-xl border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                                 <ChevronLeft size={16} />
                             </button>
-                            <button
-                                disabled={page === totalPages}
-                                onClick={() => setPage(p => p + 1)}
-                                className="w-9 h-9 rounded-xl border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                            >
+                            <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="w-9 h-9 rounded-xl border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                                 <ChevronRight size={16} />
                             </button>
                         </div>

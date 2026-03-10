@@ -5,10 +5,21 @@ export const getAdminStats = async () => {
     return response.data;
 };
 
-export const getAdminUsers = async (page = 1, search = '') => {
-    const response = await api.get(`/admin/users?page=${page}&limit=20&search=${encodeURIComponent(search)}`);
+export const getAdminUsers = async (filters = {}) => {
+    const params = new URLSearchParams({
+        page: filters.page || 1,
+        limit: 20,
+        search: filters.search || '',
+        role: filters.role || '',
+        subscription: filters.subscription || '',
+        sortBy: filters.sortBy || 'newest',
+        dateFrom: filters.dateFrom || '',
+        dateTo: filters.dateTo || '',
+    });
+    const response = await api.get(`/admin/users?${params.toString()}`);
     return response.data;
 };
+
 
 export const updateUserRole = async (userId, role) => {
     const response = await api.patch(`/admin/users/${userId}/role`, { role });

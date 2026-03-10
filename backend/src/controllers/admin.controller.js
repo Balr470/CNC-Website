@@ -12,15 +12,23 @@ exports.getDashboardStats = async (req, res) => {
 
 exports.getUsers = async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
-        const search = req.query.search || '';
-        const data = await adminService.getAllUsers(page, limit, search);
+        const { page, limit, search, role, subscription, sortBy, dateFrom, dateTo } = req.query;
+        const data = await adminService.getAllUsers({
+            page: parseInt(page) || 1,
+            limit: parseInt(limit) || 20,
+            search: search || '',
+            role: role || '',
+            subscription: subscription || '',
+            sortBy: sortBy || 'newest',
+            dateFrom: dateFrom || '',
+            dateTo: dateTo || '',
+        });
         successResponse(res, 200, data);
     } catch (error) {
         serverError(res, error);
     }
 };
+
 
 exports.updateUserRole = async (req, res) => {
     try {

@@ -77,16 +77,55 @@ exports.getDashboardStats = async () => {
     };
 };
 
-// ─── Get paginated user list ──────────────────────────────────────────────────
-exports.getAllUsers = async (page = 1, limit = 20, search = '') => {
-    const query = search
-        ? { $or: [{ name: { $regex: search, $options: 'i' } }, { email: { $regex: search, $options: 'i' } }] }
-        : {};
+// ─── Get paginated user list (with advanced filters) ────────────────────────
+exports.getAllUsers = async ({ page = 1, limit = 20, search = '', role = '', subscription = '', sortBy = 'newest', dateFrom = '', dateTo = '' } = {}) => {
+    const query = {};
+
+    // Text search on name or email
+    if (search) {
+        query.$or = [
+            { name: { $regex: search, $options: 'i' } },
+            { email: { $regex: search, $options: 'i' } }
+        ];
+    }
+
+    // Role filter
+    if (role && ['user', 'admin'].includes(role)) {
+        query.role = role;
+    }
+
+    // Subscription status filter
+    if (subscription === 'active') {
+        query.subscriptionStatus = 'active';
+    } else if (subscription === 'none') {
+        query.subscriptionStatus = { $ne: 'active' };
+    }
+
+    // Date range filter on createdAt
+    if (dateFrom || dateTo) {
+        query.createdAt = {};
+        if (dateFrom) query.createdAt.$gte = new Date(dateFrom);
+        if (dateTo) {
+            const end = new Date(dateTo);
+            end.setHours(23, 59, 59, 999);
+            query.createdAt.$lte = end;
+        }
+    }
+
+    // Sort mapping
+    const sortMap = {
+        newest: { createdAt: -1 },
+        oldest: { createdAt: 1 },
+        purchases: { purchasedDesigns: -1 },
+        name_asc: { name: 1 },
+        name_desc: { name: -1 },
+    };
+    const sort = sortMap[sortBy] || sortMap.newest;
 
     const [users, total] = await Promise.all([
         User.find(query)
             .select('name email role createdAt purchasedDesigns subscriptionStatus downloadsRemaining')
-            .sort({ createdAt: -1 })
+            .sort(sort)
             .skip((page - 1) * limit)
             .limit(limit)
             .lean(),
@@ -95,6 +134,7 @@ exports.getAllUsers = async (page = 1, limit = 20, search = '') => {
 
     return { users, total, page, pages: Math.ceil(total / limit) };
 };
+
 
 // ─── Promote / demote user role ───────────────────────────────────────────────
 exports.setUserRole = async (userId, role) => {
