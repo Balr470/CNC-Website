@@ -22,9 +22,13 @@ const sanitizeObject = (obj) => {
  * against XSS injection. Runs after body-parser.
  */
 const xssSanitizer = (req, res, next) => {
-    if (req.body) req.body = sanitizeObject(req.body);
-    if (req.query) req.query = sanitizeObject(req.query);
-    if (req.params) req.params = sanitizeObject(req.params);
+    ['body', 'query', 'params'].forEach(key => {
+        if (req[key] && typeof req[key] === 'object') {
+            for (const prop of Object.keys(req[key])) {
+                req[key][prop] = sanitizeObject(req[key][prop]);
+            }
+        }
+    });
     next();
 };
 
