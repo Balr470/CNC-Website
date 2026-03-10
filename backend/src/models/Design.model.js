@@ -5,10 +5,12 @@ const designSchema = new mongoose.Schema({
         type: String,
         required: [true, 'A design must have a title'],
         trim: true,
+        maxlength: [100, 'Title cannot exceed 100 characters']
     },
     description: {
         type: String,
         required: [true, 'A design must have a description'],
+        maxlength: [2000, 'Description cannot exceed 2000 characters']
     },
     price: {
         type: Number,

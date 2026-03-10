@@ -1,9 +1,25 @@
 const cloudinary = require('../config/cloudinary');
+const path = require('path');
 
 const generateSignedUrl = async (fileKey) => {
-    // Handling local files
-    if (fileKey && fileKey.startsWith('local-designs/')) {
-        const fileName = fileKey.replace('local-designs/', '');
+    if (!fileKey || typeof fileKey !== 'string') {
+        throw new Error('Invalid file key');
+    }
+
+    // ✅ SECURITY: Prevent path traversal attacks.
+    // Strip null bytes, parent directory sequences, and normalize separators.
+    const sanitizedKey = fileKey
+        .replace(/\0/g, '')           // Remove null bytes
+        .replace(/\.\.\/|\.\.\\/g, '') // Strip ../ and ..\
+        .trim();
+
+    if (!sanitizedKey || sanitizedKey !== fileKey) {
+        throw new Error('Invalid or malicious file key detected');
+    }
+
+    // Handling local files (development only)
+    if (sanitizedKey.startsWith('local-designs/')) {
+        const fileName = path.basename(sanitizedKey.replace('local-designs/', ''));
         const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
         return `${baseUrl}/uploads/designs/${fileName}`;
     }
@@ -12,7 +28,7 @@ const generateSignedUrl = async (fileKey) => {
     const expiresAt = Math.floor(Date.now() / 1000) + expiry;
 
     try {
-        const url = cloudinary.utils.private_download_url(fileKey, 'raw', {
+        const url = cloudinary.utils.private_download_url(sanitizedKey, 'raw', {
             expires_at: expiresAt,
             attachment: true
         });
