@@ -6,42 +6,15 @@ exports.createUser = async (name, email, password) => {
 };
 
 exports.authenticateUser = async (email, password) => {
-    const user = await User.findOne({ email }).select('+password').populate('cart wishlist');
+    const user = await User.findOne({ email }).select('+password');
     if (!user || !(await user.comparePassword(password, user.password))) {
         return null;
     }
-
-    // Clean up stale IDs on login
-    const activeCart = user.cart.filter(item => item && item.isActive).map(item => item._id);
-    const activeWishlist = user.wishlist.filter(item => item && item.isActive).map(item => item._id);
-
-    if (activeCart.length !== user.cart.length || activeWishlist.length !== user.wishlist.length) {
-        user.cart = activeCart;
-        user.wishlist = activeWishlist;
-        await user.save({ validateBeforeSave: false });
-    }
-
     return user;
 };
 
 exports.getUserProfile = async (userId) => {
-    // BUG FIX: Automatically clean up stale/deleted items from cart and wishlist
-    // so the badge counts in the header are always accurate.
-    const user = await User.findById(userId).populate('cart wishlist');
-    if (!user) return null;
-
-    // Filter out items that are no longer active or were deleted
-    const activeCart = user.cart.filter(item => item && item.isActive).map(item => item._id);
-    const activeWishlist = user.wishlist.filter(item => item && item.isActive).map(item => item._id);
-
-    // If we found stale items, update the user in DB silently
-    if (activeCart.length !== user.cart.length || activeWishlist.length !== user.wishlist.length) {
-        user.cart = activeCart;
-        user.wishlist = activeWishlist;
-        await user.save({ validateBeforeSave: false });
-    }
-
-    return user;
+    return await User.findById(userId);
 };
 
 // Separate function used only for the /my-purchases endpoint
