@@ -29,14 +29,3 @@ exports.getUsers = async (req, res) => {
 };
 
 
-exports.updateUserRole = async (req, res) => {
-    try {
-        const { role } = req.body;
-        if (!role) return res.status(400).json({ error: 'Role is required' });
-        const user = await adminService.setUserRole(req.params.id, role);
-        successResponse(res, 200, { user });
-    } catch (error) {
-        serverError(res, error);
-    }
-};
-

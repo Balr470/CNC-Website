@@ -149,12 +149,3 @@ exports.getAllUsers = async ({ page = 1, limit = 20, search = '', role = '', sor
 };
 
 
-// ─── Promote / demote user role ───────────────────────────────────────────────
-exports.setUserRole = async (userId, role) => {
-    if (!['user', 'admin'].includes(role)) throw new Error('Invalid role');
-    const user = await User.findByIdAndUpdate(userId, { role }, { new: true, runValidators: true })
-        .select('name email role');
-    if (!user) throw new Error('User not found');
-    return user;
-};
-

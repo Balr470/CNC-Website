@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getAdminStats, getAdminUsers, updateUserRole } from '../services/admin.service';
+import { getAdminStats, getAdminUsers } from '../services/admin.service';
 import { Users, FileBox, IndianRupee, Database, Image as ImageIcon, Cloud, BarChart3, AlertTriangle, Search, ChevronLeft, ChevronRight, ShieldCheck, Shield, X, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -41,7 +41,6 @@ const UserManagement = () => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
-    const [updatingId, setUpdatingId] = useState(null);
     const [filtersOpen, setFiltersOpen] = useState(false);
 
     // Draft filter values (inside the panel)
@@ -110,27 +109,6 @@ const UserManagement = () => {
         setPage(1);
     };
 
-    const handleRoleToggle = async (user) => {
-        const newRole = user.role === 'admin' ? 'user' : 'admin';
-        // BUG FIX #3: No guard against toggling your own role. An admin could
-        // accidentally demote themselves and lose access. We check against the
-        // logged-in user's ID — but since we don't have auth context here, we
-        // prevent the action with a clear message if role === 'admin' on own account.
-        // Full fix: compare user._id against auth user._id if AuthContext is available.
-        try {
-            setUpdatingId(user._id);
-            await updateUserRole(user._id, newRole);
-            setUsers(prev => prev.map(u => u._id === user._id ? { ...u, role: newRole } : u));
-            toast.success(`${user.name} is now ${newRole === 'admin' ? 'an Admin' : 'a regular User'}`);
-        } catch (e) {
-            // BUG FIX #4: Error message was only reading e.response?.data?.error
-            // but the backend setUserRole throws plain Error objects (not HTTP errors)
-            // which have e.message — not e.response. Now handles both cases.
-            toast.error(e.response?.data?.error || e.message || 'Failed to update role');
-        } finally {
-            setUpdatingId(null);
-        }
-    };
 
     const activeFiltersCount = [applied.search, applied.role, applied.dateFrom, applied.dateTo].filter(Boolean).length
         + (applied.sortBy !== 'newest' ? 1 : 0);
@@ -241,7 +219,6 @@ const UserManagement = () => {
                                 <th className="text-left px-6 py-4 font-bold text-gray-500 text-xs tracking-wider">ROLE</th>
                                 <th className="text-left px-6 py-4 font-bold text-gray-500 text-xs tracking-wider">PURCHASES</th>
                                 <th className="text-left px-6 py-4 font-bold text-gray-500 text-xs tracking-wider">JOINED</th>
-                                <th className="text-right px-6 py-4 font-bold text-gray-500 text-xs tracking-wider">ACTION</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -253,12 +230,11 @@ const UserManagement = () => {
                                         <td className="px-6 py-4"><div className="h-6 bg-gray-100 rounded-full w-16" /></td>
                                         <td className="px-6 py-4"><div className="h-4 bg-gray-100 rounded w-8" /></td>
                                         <td className="px-6 py-4"><div className="h-4 bg-gray-100 rounded w-24" /></td>
-                                        <td className="px-6 py-4"><div className="h-8 bg-gray-100 rounded-xl w-24 ml-auto" /></td>
                                     </tr>
                                 ))
                             ) : users.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="text-center py-16 text-gray-400 font-medium">
+                                    <td colSpan={6} className="text-center py-16 text-gray-400 font-medium">
                                         No users match your filters
                                     </td>
                                 </tr>
@@ -283,15 +259,6 @@ const UserManagement = () => {
                                         <td className="px-6 py-4 font-bold text-gray-700">{user.purchasedDesigns?.length || 0}</td>
                                         <td className="px-6 py-4 text-gray-400 font-medium text-xs">
                                             {new Date(user.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <button
-                                                onClick={() => handleRoleToggle(user)}
-                                                disabled={updatingId === user._id}
-                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-wait ${user.role === 'admin' ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-100' : 'bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-100'}`}
-                                            >
-                                                {updatingId === user._id ? '...' : user.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
-                                            </button>
                                         </td>
                                     </tr>
                                 ))
