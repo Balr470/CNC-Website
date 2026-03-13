@@ -1,5 +1,6 @@
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 const designService = require('../services/design.service');
+const xss = require('xss');
 
 // Get all basic designs (public route)
 exports.getAllDesigns = async (req, res) => {
@@ -68,7 +69,12 @@ exports.getRelatedDesigns = async (req, res) => {
 // Create a design (Handled by multer upload preview and uploadCNC middlewares)
 exports.createDesign = async (req, res) => {
     try {
-        const { title, description, price, category } = req.body;
+        // ✅ XSS FIX: Sanitize text fields from multipart/form-data AFTER multer has parsed them.
+        // The global xssSanitizer runs before multer, so req.body is empty at that point.
+        const title = xss((req.body.title || '').trim());
+        const description = xss((req.body.description || '').trim());
+        const category = xss((req.body.category || '').trim());
+        const price = req.body.price;
 
         // Validation logic
         if (!title || !description || price === undefined || !category) {

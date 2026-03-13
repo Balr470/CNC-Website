@@ -27,7 +27,8 @@ exports.getAllDesigns = async ({ category, search, sort, page, limit, priceType,
         filter.price = { $gt: 0 };
     }
     if (fileType) {
-        filter.fileKey = new RegExp(`\\.${fileType}$`, 'i');
+        const escapedFileType = fileType.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        filter.fileKey = new RegExp(`\\.${escapedFileType}$`, 'i');
     }
 
     // Sorting

@@ -182,6 +182,12 @@ exports.toggleWishlist = async (req, res) => {
         if (!id.match(/^[0-9a-fA-F]{24}$/)) {
             return errorResponse(res, 400, 'Invalid design ID');
         }
+
+        const isAlreadyInWishlist = req.user.wishlist.some(wId => wId.toString() === id);
+        if (!isAlreadyInWishlist && req.user.wishlist.length >= 100) {
+            return errorResponse(res, 400, 'Wishlist limit reached. Please remove some items first.');
+        }
+
         const result = await authService.toggleWishlist(req.user.id, id);
         successResponse(res, 200, { data: result });
     } catch (error) {
@@ -207,6 +213,12 @@ exports.toggleCart = async (req, res) => {
         if (!id.match(/^[0-9a-fA-F]{24}$/)) {
             return errorResponse(res, 400, 'Invalid design ID');
         }
+
+        const isAlreadyInCart = req.user.cart.some(cId => cId.toString() === id);
+        if (!isAlreadyInCart && req.user.cart.length >= 50) {
+            return errorResponse(res, 400, 'Cart limit reached. You can only have 50 items at a time.');
+        }
+
         const result = await authService.toggleCart(req.user.id, id);
         successResponse(res, 200, { data: result });
     } catch (error) {

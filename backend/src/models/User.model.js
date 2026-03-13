@@ -40,6 +40,7 @@ const userSchema = new mongoose.Schema({
     }],
     stripeCustomerId: String,
     lastAbandonedCartEmailSentAt: Date,
+    abandonedCartEmailCount: { type: Number, default: 0 },  // max 3 emails per cart session
     resetPasswordToken: String,
     resetPasswordExpire: Date,
     // Track when password last changed so old JWTs auto-invalidate

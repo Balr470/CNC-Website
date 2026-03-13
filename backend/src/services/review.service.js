@@ -39,10 +39,16 @@ exports.createReview = async (userId, designId, rating, comment) => {
     return review;
 };
 
-// Get all reviews for a specific design
-exports.getDesignReviews = async (designId) => {
-    const reviews = await Review.find({ design: designId })
-        .populate('user', 'name') // Only select name
-        .sort('-createdAt');
-    return reviews;
+// Get paginated reviews for a specific design
+exports.getDesignReviews = async (designId, { page = 1, limit = 10 } = {}) => {
+    const skip = (page - 1) * limit;
+    const [reviews, total] = await Promise.all([
+        Review.find({ design: designId })
+            .populate('user', 'name')
+            .sort('-createdAt')
+            .skip(skip)
+            .limit(limit),
+        Review.countDocuments({ design: designId })
+    ]);
+    return { reviews, total, page, pages: Math.ceil(total / limit) };
 };

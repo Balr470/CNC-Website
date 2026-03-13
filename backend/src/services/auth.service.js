@@ -34,9 +34,6 @@ exports.toggleWishlist = async (userId, designId) => {
     let isAdded = false;
 
     if (index === -1) {
-        if (user.wishlist.length >= 100) {
-            throw new Error('Wishlist limit reached. Please remove some items first.');
-        }
         user.wishlist.push(designId);
         isAdded = true;
     } else {
@@ -64,9 +61,6 @@ exports.toggleCart = async (userId, designId) => {
     let isAdded = false;
 
     if (index === -1) {
-        if (user.cart.length >= 50) {
-            throw new Error('Cart limit reached. You can only have 50 items at a time.');
-        }
         user.cart.push(designId);
         isAdded = true;
     } else {

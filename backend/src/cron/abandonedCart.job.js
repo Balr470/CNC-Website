@@ -14,9 +14,14 @@ const startCartAbandonmentJob = () => {
             // they abandon their cart again weeks later.
             // Fix: use a 24-hour cooldown window instead of a simple existence check.
             const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
             const usersWithAbandonedCarts = await User.find({
                 'cart.0': { $exists: true },
+                // Only target carts updated within last 7 days to avoid staleness
+                updatedAt: { $gte: sevenDaysAgo },
+                // Max 3 reminder emails per cart session
+                $expr: { $lt: [{ $ifNull: ['$abandonedCartEmailCount', 0] }, 3] },
                 $or: [
                     { lastAbandonedCartEmailSentAt: { $exists: false } },
                     { lastAbandonedCartEmailSentAt: { $lt: oneDayAgo } }
@@ -51,6 +56,7 @@ const startCartAbandonmentJob = () => {
                     });
 
                     user.lastAbandonedCartEmailSentAt = new Date();
+                    user.abandonedCartEmailCount = (user.abandonedCartEmailCount || 0) + 1;
                     await user.save({ validateBeforeSave: false });
                     emailsSent++;
                 } catch (emailError) {

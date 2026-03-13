@@ -39,6 +39,8 @@ app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 // Must be FIRST — even rate-limited / blocked requests need CORS headers
 const allowedOrigins = [
     process.env.FRONTEND_URL,
+    'https://www.cncmarket.in', // production www
+    'https://cncmarket.in',     // production non-www
     'http://localhost:5173',
     'http://localhost:5174', // Vite fallback
 ].filter(Boolean); // remove undefined if FRONTEND_URL not set

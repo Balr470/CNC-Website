@@ -1,13 +1,13 @@
 const Design = require('../models/Design.model');
-const { successResponse, errorResponse, serverError } = require('../utils/responseHandler');
+const { successResponse, errorResponse } = require('../utils/responseHandler');
 const downloadService = require('../services/download.service');
 
-exports.getDownloadLink = async (req, res) => {
+exports.getDownloadLink = async (req, res, next) => {
     try {
         const { designId } = req.params;
 
-        if (!designId) {
-            return errorResponse(res, 400, 'Design ID is required');
+        if (!designId || !designId.match(/^[0-9a-fA-F]{24}$/)) {
+            return errorResponse(res, 400, 'Invalid Design ID format');
         }
 
         // 1. Find the design
@@ -32,6 +32,6 @@ exports.getDownloadLink = async (req, res) => {
         });
 
     } catch (error) {
-        serverError(res, error);
+        next(error);
     }
 };

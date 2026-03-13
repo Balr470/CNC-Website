@@ -1,9 +1,9 @@
 const Design = require('../models/Design.model');
-const { successResponse, errorResponse, serverError } = require('../utils/responseHandler');
+const { successResponse, errorResponse } = require('../utils/responseHandler');
 const paymentService = require('../services/payment.service');
 
 // Create Razorpay order (Single or Multiple items)
-exports.createOrder = async (req, res) => {
+exports.createOrder = async (req, res, next) => {
     try {
         const { designIds } = req.body;
 
@@ -31,12 +31,12 @@ exports.createOrder = async (req, res) => {
         if (error.message === 'You have already purchased one or more of these designs.') {
             return errorResponse(res, 400, error.message);
         }
-        serverError(res, error);
+        next(error);
     }
 };
 
 // Verify Razorpay payment signature and fulfil order
-exports.verifyPayment = async (req, res) => {
+exports.verifyPayment = async (req, res, next) => {
     try {
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
@@ -60,6 +60,6 @@ exports.verifyPayment = async (req, res) => {
         if (error.message && error.message.startsWith('Unauthorized')) {
             return errorResponse(res, 403, error.message);
         }
-        serverError(res, error);
+        next(error);
     }
 };
