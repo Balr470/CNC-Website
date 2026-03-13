@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# Block private / user-specific pages from indexing
+Disallow: /admin
+Disallow: /upload
+Disallow: /cart
+Disallow: /my-purchases
+Disallow: /my-wishlist
+Disallow: /payment-success
+Disallow: /reset-password/
+
+Sitemap: https://www.cncmarket.in/sitemap.xml
