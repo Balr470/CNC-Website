@@ -1,10 +1,12 @@
 const mongoose = require('mongoose');
+const { Query } = require('node-appwrite');
 const User = require('../models/User.model');
 const Design = require('../models/Design.model');
 const Order = require('../models/Order.model');
 const cloudinary = require('../config/cloudinary');
 const r2 = require('../config/storage');
 const { ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { bucketId: appwriteBucketId, configError: appwriteConfigError, isConfigured: isAppwriteConfigured, storage: appwriteStorage } = require('../config/appwrite');
 
 exports.getDashboardStats = async () => {
     // 1. Basic Counts
@@ -50,20 +52,86 @@ exports.getDashboardStats = async () => {
         cloudinaryStats = { status: 'Error', error: err.message };
     }
 
-    // 5. R2 Storage Estimation
-    let r2Stats = { status: 'Active', totalFiles: 0, totalSize: 0 };
+    // 5. Appwrite Storage Estimation
+    let appwriteStats = {
+        status: 'Not Configured',
+        bucketId: appwriteBucketId || '',
+        bucketName: '',
+        totalFiles: 0,
+        totalSize: 0,
+        maxFileSizeMb: 0,
+        fileSecurity: false,
+        enabled: false,
+    };
     try {
-        const command = new ListObjectsV2Command({
-            Bucket: process.env.R2_BUCKET_NAME
-        });
-        const response = await r2.send(command);
-        if (response.Contents) {
-            r2Stats.totalFiles = response.Contents.length;
-            const totalBytes = response.Contents.reduce((acc, item) => acc + item.Size, 0);
-            r2Stats.totalSize = (totalBytes / 1024 / 1024).toFixed(2); // MB
+        if (!isAppwriteConfigured) {
+            appwriteStats.status = 'Missing Config';
+            appwriteStats.error = appwriteConfigError || 'Appwrite env values are missing.';
+        } else {
+            const bucket = await appwriteStorage.getBucket({ bucketId: appwriteBucketId });
+            let totalFiles = 0;
+            let totalBytes = 0;
+            let offset = 0;
+            const pageSize = 100;
+
+            while (true) {
+                const filePage = await appwriteStorage.listFiles({
+                    bucketId: appwriteBucketId,
+                    queries: [Query.limit(pageSize), Query.offset(offset)],
+                });
+
+                const files = filePage.files || [];
+                totalFiles += files.length;
+                totalBytes += files.reduce((sum, file) => sum + (file.sizeOriginal || 0), 0);
+
+                if (files.length < pageSize) {
+                    break;
+                }
+
+                offset += pageSize;
+            }
+
+            appwriteStats = {
+                status: 'Active',
+                bucketId: bucket.$id,
+                bucketName: bucket.name,
+                totalFiles,
+                totalSize: (totalBytes / 1024 / 1024).toFixed(2),
+                maxFileSizeMb: ((bucket.maximumFileSize || 0) / 1024 / 1024).toFixed(2),
+                fileSecurity: Boolean(bucket.fileSecurity),
+                enabled: Boolean(bucket.enabled),
+            };
         }
     } catch (err) {
-        r2Stats = { status: 'Error', error: err.message };
+        appwriteStats = {
+            ...appwriteStats,
+            status: 'Error',
+            error: err.message,
+        };
+    }
+
+    // 6. Legacy R2 visibility for old deployments only
+    let r2Stats = { status: 'Inactive', totalFiles: 0, totalSize: 0 };
+    try {
+        if (
+            process.env.R2_BUCKET_NAME &&
+            !String(process.env.R2_BUCKET_NAME).includes('your-production-r2-bucket-name') &&
+            !String(process.env.R2_BUCKET_NAME).includes('your-r2-bucket-name')
+        ) {
+            const command = new ListObjectsV2Command({
+                Bucket: process.env.R2_BUCKET_NAME
+            });
+            const response = await r2.send(command);
+            if (response.Contents) {
+                r2Stats = {
+                    status: 'Active',
+                    totalFiles: response.Contents.length,
+                    totalSize: (response.Contents.reduce((acc, item) => acc + item.Size, 0) / 1024 / 1024).toFixed(2),
+                };
+            }
+        }
+    } catch (err) {
+        r2Stats = { status: 'Error', error: err.message, totalFiles: 0, totalSize: 0 };
     }
 
     return {
@@ -72,6 +140,7 @@ exports.getDashboardStats = async () => {
         storage: {
             mongodb: dbStats,
             cloudinary: cloudinaryStats,
+            appwrite: appwriteStats,
             r2: r2Stats
         }
     };

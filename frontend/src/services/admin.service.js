@@ -8,7 +8,7 @@ export const getAdminStats = async () => {
 export const getAdminUsers = async (filters = {}) => {
     const params = new URLSearchParams({
         page: filters.page || 1,
-        limit: 20,
+        limit: filters.limit || 10,
         search: filters.search || '',
         role: filters.role || '',
         sortBy: filters.sortBy || 'newest',

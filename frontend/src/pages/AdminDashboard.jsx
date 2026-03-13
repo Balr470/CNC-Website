@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getAdminStats, getAdminUsers } from '../services/admin.service';
-import { Users, FileBox, IndianRupee, Database, Image as ImageIcon, Cloud, BarChart3, AlertTriangle, Search, ChevronLeft, ChevronRight, ShieldCheck, Shield, X, Filter } from 'lucide-react';
+import { Users, FileBox, IndianRupee, Database, Image as ImageIcon, Cloud, HardDrive, BarChart3, AlertTriangle, Search, ChevronLeft, ChevronRight, ShieldCheck, Shield, X, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
@@ -37,7 +37,8 @@ const StatCard = ({ title, value, subValue, icon: Icon, color, isWarning }) => {
 // ─── User Management Section ──────────────────────────────────────────────────
 const UserManagement = () => {
     const [users, setUsers] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
+    const [enabled, setEnabled] = useState(false);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
@@ -62,7 +63,7 @@ const UserManagement = () => {
     const fetchUsers = useCallback(async (p, filters) => {
         setLoading(true);
         try {
-            const data = await getAdminUsers({ page: p, ...filters });
+            const data = await getAdminUsers({ page: p, limit: 10, ...filters });
             setUsers(data.users || []);
             setTotalPages(data.pages || 1);
             setTotal(data.total || 0);
@@ -74,8 +75,11 @@ const UserManagement = () => {
     }, []);
 
     useEffect(() => {
+        if (!enabled) {
+            return;
+        }
         fetchUsers(page, applied);
-    }, [page, applied, fetchUsers]);
+    }, [enabled, page, applied, fetchUsers]);
 
     const applyFilters = () => {
         // BUG FIX #2: dateFrom > dateTo was never validated — API gets invalid
@@ -125,6 +129,18 @@ const UserManagement = () => {
                     <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2.5 py-1 rounded-full">{total}</span>
                 </h2>
                 <div className="flex items-center gap-2">
+                    {!enabled && (
+                        <button
+                            onClick={() => {
+                                setEnabled(true);
+                                setPage(1);
+                            }}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border bg-black text-white border-black text-sm font-bold hover:bg-gray-900 transition-colors"
+                        >
+                            <Users size={14} />
+                            Load Users
+                        </button>
+                    )}
                     {activeFiltersCount > 0 && (
                         <button onClick={resetFilters} className="flex items-center gap-1.5 text-xs font-bold text-red-500 hover:text-red-700 border border-red-200 bg-red-50 px-3 py-2 rounded-xl transition-colors">
                             <X size={12} /> Clear All ({activeFiltersCount})
@@ -142,6 +158,19 @@ const UserManagement = () => {
                     </button>
                 </div>
             </div>
+
+            {!enabled ? (
+                <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-10 text-center">
+                    <div className="mx-auto w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-4">
+                        <Users size={22} className="text-blue-600" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900">User list is loaded on demand</h3>
+                    <p className="text-sm text-gray-500 font-medium mt-2 max-w-md mx-auto">
+                        Click `Load Users` to fetch the first 10 users. Use the next and previous buttons to continue through the list.
+                    </p>
+                </div>
+            ) : (
+                <>
 
             {/* Advanced Filter Panel */}
             {filtersOpen && (
@@ -284,6 +313,8 @@ const UserManagement = () => {
                     </div>
                 )}
             </div>
+                </>
+            )}
         </div>
     );
 };
@@ -376,7 +407,7 @@ const AdminDashboard = () => {
                         <span className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center"><Database size={14} className="text-gray-600" /></span>
                         Infrastructure Limits Tracker
                     </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 xl:gap-8 mb-10">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 xl:gap-8 mb-10">
                         <StatCard
                             title="MongoDB Atlas (Free M0)"
                             value={`${storage.mongodb.dataSize} MB`}
@@ -393,12 +424,24 @@ const AdminDashboard = () => {
                             isWarning={storage.cloudinary.status !== 'Active'}
                         />
                         <StatCard
-                            title="Cloudflare R2 Bucket"
-                            value={storage.r2.status === 'Active' ? `${storage.r2.totalSize} MB` : 'Offline'}
-                            subValue={storage.r2.status === 'Active' ? `Total Secured CNC Files: ${storage.r2.totalFiles} (Limit: 10GB/mo free)` : storage.r2.error || 'Bucket details missing.'}
-                            icon={Cloud}
+                            title="Appwrite CNC Storage"
+                            value={storage.appwrite.status === 'Active' ? `${storage.appwrite.totalSize} MB` : 'Offline'}
+                            subValue={
+                                storage.appwrite.status === 'Active'
+                                    ? `Files: ${storage.appwrite.totalFiles} • Bucket: ${storage.appwrite.bucketName || storage.appwrite.bucketId} • Max file: ${storage.appwrite.maxFileSizeMb} MB`
+                                    : storage.appwrite.error || 'Bucket details missing.'
+                            }
+                            icon={HardDrive}
                             color="orange"
-                            isWarning={storage.r2.status !== 'Active'}
+                            isWarning={storage.appwrite.status !== 'Active'}
+                        />
+                        <StatCard
+                            title="Legacy R2 Storage"
+                            value={storage.r2.status === 'Active' ? `${storage.r2.totalSize} MB` : 'Inactive'}
+                            subValue={storage.r2.status === 'Active' ? `Legacy files: ${storage.r2.totalFiles}` : storage.r2.error || 'Not used by current upload flow.'}
+                            icon={Cloud}
+                            color="gray"
+                            isWarning={storage.r2.status === 'Error'}
                         />
                     </div>
                 </div>
@@ -411,7 +454,7 @@ const AdminDashboard = () => {
                     <div>
                         <h3 className="font-bold text-amber-900 mb-1">Admin Infrastructure Note</h3>
                         <div className="text-sm font-medium text-amber-800/80 leading-relaxed max-w-4xl">
-                            The MongoDB Atlas Free cluster (M0) limits data to 512MB and implements heavy connection throttles. Cloudflare R2 provides up to 10GB of egress free monthly. Monitor usage closely as the CNC market scales to anticipate service billing.
+                            The MongoDB Atlas Free cluster (M0) limits data to 512MB and implements heavy connection throttles. Preview images are stored on Cloudinary, and protected CNC source files now live on Appwrite. Monitor bucket size, max file-size policy, and Cloudinary media usage as uploads scale.
                         </div>
                     </div>
                 </div>

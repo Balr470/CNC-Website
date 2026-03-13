@@ -15,7 +15,7 @@ exports.getUsers = async (req, res, next) => {
         const { page, limit, search, role, sortBy, dateFrom, dateTo } = req.query;
         const data = await adminService.getAllUsers({
             page: parseInt(page) || 1,
-            limit: parseInt(limit) || 20,
+            limit: parseInt(limit) || 10,
             search: search || '',
             role: role || '',
             sortBy: sortBy || 'newest',
