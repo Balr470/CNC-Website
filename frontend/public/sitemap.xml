@@ -15,31 +15,108 @@
     <priority>0.9</priority>
   </url>
 
-  <!-- Category pages -->
-  <url>
-    <loc>https://www.cncmarket.in/category/3d-designs</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
+  <!-- ── Category Pages (slugs match categoryDetails in Category.jsx) ── -->
+
   <url>
     <loc>https://www.cncmarket.in/category/2d-designs</loc>
     <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://www.cncmarket.in/category/2d-grill-designs</loc>
+    <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
+
+  <url>
+    <loc>https://www.cncmarket.in/category/3d-designs</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://www.cncmarket.in/category/3d-traditional</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://www.cncmarket.in/category/temple-designs</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://www.cncmarket.in/category/3d-doors-design</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://www.cncmarket.in/category/3d-modern-panel-doors</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://www.cncmarket.in/category/3d-latest-panel-door</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://www.cncmarket.in/category/3d-borderless-mdf-door</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://www.cncmarket.in/category/3d-traditional-panel-door</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://www.cncmarket.in/category/3d-unique-door</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://www.cncmarket.in/category/carvings</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
   <url>
     <loc>https://www.cncmarket.in/category/furniture</loc>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
+
   <url>
-    <loc>https://www.cncmarket.in/category/panels</loc>
+    <loc>https://www.cncmarket.in/category/reliefs</loc>
     <changefreq>daily</changefreq>
-    <priority>0.8</priority>
+    <priority>0.7</priority>
   </url>
+
   <url>
-    <loc>https://www.cncmarket.in/category/rosettes</loc>
+    <loc>https://www.cncmarket.in/category/routers</loc>
     <changefreq>daily</changefreq>
-    <priority>0.8</priority>
+    <priority>0.7</priority>
+  </url>
+
+  <url>
+    <loc>https://www.cncmarket.in/category/spindles</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <url>
+    <loc>https://www.cncmarket.in/category/v-bits</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
   </url>
 
   <!-- Auth pages -->
