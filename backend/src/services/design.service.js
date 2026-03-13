@@ -58,13 +58,14 @@ exports.getDesignById = async (id) => {
     return await Design.findById(id).populate('uploadedBy', 'name');
 };
 
-// Create a new design: Watermark preview, upload CNC file, and save record
+// Create a new design: watermark the Cloudinary preview and store the CNC source file in Cloudinary private storage.
 exports.createDesign = async (designData, previewFile, cncFile, userId) => {
     // Fix #2: safely get the Cloudinary public_id — filename is set by multer-storage-cloudinary
     const publicId = previewFile.filename || previewFile.public_id;
     if (!publicId) throw new Error('Preview image upload failed — no public_id returned from Cloudinary');
 
     const watermarkedUrl = cloudinary.url(publicId, {
+        secure: true,
         transformation: [
             { width: 800, crop: "scale" },
             {
@@ -81,7 +82,7 @@ exports.createDesign = async (designData, previewFile, cncFile, userId) => {
         ]
     });
 
-    // Upload main file to Cloudinary
+    // Upload the protected source file to Cloudinary raw storage.
     const fileKey = await uploadToCloudinary(
         cncFile.buffer,
         cncFile.mimetype,

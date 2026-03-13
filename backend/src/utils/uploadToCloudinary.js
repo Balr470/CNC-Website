@@ -13,7 +13,11 @@ module.exports = async (fileBuffer, mimeType, originalName) => {
                 resource_type: 'raw',
                 folder: 'cnc/designs',
                 public_id: fileName,
-                type: 'private' // Protect the file
+                type: 'private',
+                overwrite: false,
+                use_filename: false,
+                unique_filename: false,
+                access_mode: 'authenticated'
             },
             (error, result) => {
                 if (error) {
