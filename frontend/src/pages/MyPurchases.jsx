@@ -100,7 +100,7 @@ const MyPurchases = () => {
                             return (
                                 <Link key={design._id} to={`/design/${design._id}`} className="group bg-white rounded-[2rem] p-3 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border border-gray-100 flex flex-col h-full cursor-pointer relative">
 
-                                    <figure className="relative aspect-[4/3] w-full rounded-[1.5rem] overflow-hidden bg-gray-50 mb-4 shrink-0">
+                                    <figure className="relative aspect-[4/3] w-full rounded-[1.5rem] overflow-hidden bg-gray-50 mb-4 shrink-0 p-3">
                                         <div className="absolute top-3 left-3 z-10 bg-green-500 text-white font-bold text-[10px] px-2.5 py-1 rounded-md tracking-widest shadow-sm">
                                             OWNED
                                         </div>
@@ -113,7 +113,7 @@ const MyPurchases = () => {
                                         <img
                                             src={design.previewImages?.[0] || placeholderImg}
                                             alt={design.title}
-                                            className="w-full h-full object-cover mix-blend-multiply group-hover:scale-105 transition-transform duration-500 pointer-events-none select-none"
+                                            className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500 pointer-events-none select-none"
                                             onContextMenu={(e) => e.preventDefault()}
                                             onError={(e) => { e.target.src = placeholderImg; }}
                                             draggable="false"
