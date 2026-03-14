@@ -1,6 +1,21 @@
+const SUPPORTED_DESIGN_FORMATS = new Set([
+    'STL',
+    'DXF',
+    'SVG',
+    'OBJ',
+    'NC',
+    'GCODE',
+    'TAP',
+    'NGC',
+    'CMX',
+    'RLF',
+    'ART',
+]);
+
 const getDesignFormat = (design) => {
     if (design?.format) {
-        return design.format;
+        const normalizedFormat = String(design.format).toUpperCase();
+        return SUPPORTED_DESIGN_FORMATS.has(normalizedFormat) ? normalizedFormat : 'DXF';
     }
 
     if (!design?.fileKey) {
@@ -8,7 +23,7 @@ const getDesignFormat = (design) => {
     }
 
     const ext = design.fileKey.split('.').pop().toUpperCase();
-    return ['STL', 'DXF', 'SVG'].includes(ext) ? ext : 'DXF';
+    return SUPPORTED_DESIGN_FORMATS.has(ext) ? ext : 'DXF';
 };
 
 export default getDesignFormat;
