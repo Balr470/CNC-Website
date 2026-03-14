@@ -20,10 +20,8 @@ const logger = require('./config/logger');
 const requiredEnvVars = ['JWT_SECRET', 'MONGODB_URI'];
 const productionRequiredEnvVars = [
     'FRONTEND_URL',
-    'BACKEND_URL',
     'RAZORPAY_KEY_ID',
     'RAZORPAY_KEY_SECRET',
-    'RAZORPAY_WEBHOOK_SECRET',
     'APPWRITE_ENDPOINT',
     'APPWRITE_PROJECT_ID',
     'APPWRITE_API_KEY',
@@ -31,11 +29,6 @@ const productionRequiredEnvVars = [
     'CLOUDINARY_CLOUD_NAME',
     'CLOUDINARY_API_KEY',
     'CLOUDINARY_API_SECRET',
-    'EMAIL_HOST',
-    'EMAIL_PORT',
-    'EMAIL_USERNAME',
-    'EMAIL_PASSWORD',
-    'EMAIL_FROM',
 ];
 
 const isPlaceholderValue = (value = '') => {
@@ -65,6 +58,31 @@ if (missing.length > 0) {
     logger.error(`FATAL: Missing required environment variables: ${missing.join(', ')}`);
     logger.error('Please check your environment configuration and try again.');
     process.exit(1);
+}
+
+const optionalProductionEnvGroups = [
+    {
+        vars: ['BACKEND_URL'],
+        feature: 'local-file download URLs',
+    },
+    {
+        vars: ['RAZORPAY_WEBHOOK_SECRET'],
+        feature: 'Razorpay webhook verification',
+    },
+    {
+        vars: ['EMAIL_HOST', 'EMAIL_PORT', 'EMAIL_USERNAME', 'EMAIL_PASSWORD', 'EMAIL_FROM'],
+        feature: 'password reset and transactional emails',
+    },
+];
+
+if (process.env.NODE_ENV === 'production') {
+    optionalProductionEnvGroups.forEach(({ vars, feature }) => {
+        const missingOptional = vars.filter((envVar) => isPlaceholderValue(process.env[envVar]));
+
+        if (missingOptional.length > 0) {
+            logger.warn(`[Config] Optional production env missing for ${feature}: ${missingOptional.join(', ')}`);
+        }
+    });
 }
 
 if (!process.env.JWT_EXPIRES_IN) {

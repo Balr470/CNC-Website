@@ -88,6 +88,10 @@ exports.verifyAndFulfillPayment = async (orderId, paymentId, signature, userId) 
 };
 
 exports.verifyWebhookSignature = (payloadBuffer, signature) => {
+    if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
+        throw new Error('Razorpay webhook secret is not configured.');
+    }
+
     const expectedSignature = crypto
         .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET)
         .update(payloadBuffer)
