@@ -26,6 +26,9 @@ router.route('/:id')
     .put(protect, restrictToAdmin, designController.updateDesign)
     .delete(protect, restrictToAdmin, designController.deleteDesign);
 
+// Permanent delete route - removes from storage AND database
+router.delete('/:id/permanent', protect, restrictToAdmin, designController.permanentDeleteDesign);
+
 router.get('/:id/related', designController.getRelatedDesigns);
 
 module.exports = router;

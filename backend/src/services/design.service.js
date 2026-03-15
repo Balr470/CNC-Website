@@ -3,6 +3,7 @@ const Review = require('../models/Review.model');
 const cloudinary = require('../config/cloudinary');
 const uploadToAppwrite = require('../utils/uploadToAppwrite');
 const uploadToR2 = require('../utils/uploadToR2');
+const { deleteDesignFiles } = require('../utils/deleteStorageFiles');
 
 const LARGE_FILE_THRESHOLD = 25 * 1024 * 1024; // 25MB
 
@@ -198,6 +199,52 @@ exports.softDeleteDesign = async (design) => {
     );
 
     return design;
+};
+
+// Hard delete - permanently removes design and files from storage
+exports.permanentDeleteDesign = async (designId) => {
+    console.log('\n========== PERMANENT DELETE ==========');
+    console.log('[PERMANENT DELETE] Design ID:', designId);
+    
+    const design = await Design.findById(designId).select('+fileKey');
+    
+    if (!design) {
+        console.log('[PERMANENT DELETE] Design not found!');
+        throw new Error('Design not found');
+    }
+
+    console.log('[PERMANENT DELETE] Design found');
+    console.log('[PERMANENT DELETE] fileKey:', design.fileKey);
+    console.log('[PERMANENT DELETE] previewImages:', design.previewImages);
+
+    // Delete files from storage
+    const deletionResults = await deleteDesignFiles(design);
+    console.log('[PERMANENT DELETE] Deletion results:', deletionResults);
+
+    // Remove from users' purchased designs, cart, and wishlist
+    const User = require('../models/User.model');
+    await User.updateMany(
+        { $or: [
+            { purchasedDesigns: design._id },
+            { cart: design._id },
+            { wishlist: design._id }
+        ]},
+        { 
+            $pull: { 
+                purchasedDesigns: design._id,
+                cart: design._id,
+                wishlist: design._id 
+            } 
+        }
+    );
+
+    // Delete the design from database
+    await Design.findByIdAndDelete(designId);
+
+    return {
+        message: 'Design permanently deleted',
+        deletionResults
+    };
 };
 
 // Get related designs by category

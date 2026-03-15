@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getDesignById, getDownloadLink, deleteDesign, updateDesign } from '../services/design.service';
+import { getDesignById, getDownloadLink, deleteDesign, permanentDeleteDesign, updateDesign } from '../services/design.service';
 import { createOrder, verifyPayment, loadRazorpayScript } from '../services/payment.service';
 import { getDesignReviews, createReview } from '../services/review.service';
 import { AuthContext } from '../context/AuthContext';
@@ -213,14 +213,14 @@ const DesignDetails = () => {
     };
 
     const handleDelete = async () => {
-        if (!window.confirm('Are you sure you want to delete this design? Users who purchased it will still have access, but it will be removed from the store.')) {
+        if (!window.confirm('Are you sure you want to permanently delete this design? This will remove all files from storage (R2, Appwrite, Cloudinary) and cannot be undone.')) {
             return;
         }
 
         try {
             setProcessing(true);
-            await deleteDesign(id);
-            toast.success('Design deleted successfully');
+            await permanentDeleteDesign(id);
+            toast.success('Design and all files deleted successfully');
             navigate('/');
         } catch (error) {
             toast.error(error.message || 'Failed to delete design');

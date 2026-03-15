@@ -105,7 +105,7 @@ exports.createDesign = async (req, res) => {
     }
 };
 
-// Delete a design (Admin only)
+// Delete a design (Admin only) - Soft delete
 exports.deleteDesign = async (req, res) => {
     try {
         if (!req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
@@ -125,6 +125,23 @@ exports.deleteDesign = async (req, res) => {
         successResponse(res, 200, {
             message: 'Design successfully removed from marketplace'
         });
+    } catch (error) {
+        errorResponse(res, 400, error.message);
+    }
+};
+
+// Permanently delete a design and its files (Admin only)
+exports.permanentDeleteDesign = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+            return errorResponse(res, 404, 'Design not found');
+        }
+
+        const result = await designService.permanentDeleteDesign(id);
+
+        successResponse(res, 200, result);
     } catch (error) {
         errorResponse(res, 400, error.message);
     }
