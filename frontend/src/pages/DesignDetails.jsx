@@ -46,6 +46,7 @@ const DesignDetails = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editForm, setEditForm] = useState({ title: '', description: '', price: 0, category: '' });
     const [updatingDesign, setUpdatingDesign] = useState(false);
+    const [activePreviewImage, setActivePreviewImage] = useState(null);
 
     useEffect(() => {
         const fetchDesign = async () => {
@@ -75,6 +76,27 @@ const DesignDetails = () => {
             setInCart(isCart);
         }
     }, [user, design]);
+
+    useEffect(() => {
+        if (!activePreviewImage) {
+            document.body.style.overflow = '';
+            return undefined;
+        }
+
+        const handleEscape = (event) => {
+            if (event.key === 'Escape') {
+                setActivePreviewImage(null);
+            }
+        };
+
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.body.style.overflow = '';
+            window.removeEventListener('keydown', handleEscape);
+        };
+    }, [activePreviewImage]);
 
     const handleToggleWishlist = async () => {
         if (!user) {
@@ -309,6 +331,7 @@ const DesignDetails = () => {
     );
     const isOwner = user?._id?.toString() === design.uploadedBy?._id?.toString();
     const fmt = getDesignFormat(design);
+    const previewImages = design.previewImages?.length ? design.previewImages : [placeholderImg];
 
     return (
         <div className="min-h-screen bg-[#f8f9fc] pt-8 pb-24 font-sans selection:bg-black selection:text-white">
@@ -349,28 +372,44 @@ const DesignDetails = () => {
                                 <Heart size={18} fill={liked ? 'currentColor' : 'none'} />
                             </button>
 
-                            <img
-                                src={design.previewImages?.[0] || placeholderImg}
-                                alt={design.title}
-                                className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-700 select-none z-0"
-                                onError={(e) => { e.target.src = placeholderImg; }}
-                                onContextMenu={(e) => e.preventDefault()}
-                                draggable={false}
-                            />
+                            <button
+                                type="button"
+                                onClick={() => setActivePreviewImage(previewImages[0])}
+                                className="w-full h-full cursor-zoom-in"
+                                aria-label="Open large preview image"
+                            >
+                                <img
+                                    src={previewImages[0]}
+                                    alt={design.title}
+                                    className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-700 select-none z-0"
+                                    onError={(e) => { e.target.src = placeholderImg; }}
+                                    onContextMenu={(e) => e.preventDefault()}
+                                    draggable={false}
+                                />
+                            </button>
                         </div>
 
                         {/* Smaller thumbnails below */}
                         <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar">
-                            <div className="w-24 h-24 rounded-2xl bg-white border-2 border-black p-2 flex-shrink-0 cursor-pointer shadow-sm">
-                                <img
-                                    src={design.previewImages?.[0] || placeholderImg}
-                                    className="w-full h-full object-cover mix-blend-multiply rounded-xl"
-                                    alt="thumb 1"
-                                />
-                            </div>
-                            <div className="w-24 h-24 rounded-2xl bg-white border border-gray-100 p-2 flex-shrink-0 cursor-pointer hover:border-black/30 transition-colors shadow-sm opacity-60 hover:opacity-100">
-                                <div className="w-full h-full rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 text-xs font-bold">More</div>
-                            </div>
+                            {previewImages.map((image, index) => (
+                                <button
+                                    key={`${image}-${index}`}
+                                    type="button"
+                                    onClick={() => setActivePreviewImage(image)}
+                                    className={`w-24 h-24 rounded-2xl bg-white p-2 flex-shrink-0 cursor-pointer shadow-sm transition-colors ${activePreviewImage === image || index === 0
+                                        ? 'border-2 border-black'
+                                        : 'border border-gray-100 hover:border-black/30 opacity-80 hover:opacity-100'
+                                        }`}
+                                    aria-label={`Open preview ${index + 1}`}
+                                >
+                                    <img
+                                        src={image}
+                                        className="w-full h-full object-cover mix-blend-multiply rounded-xl"
+                                        alt={`${design.title} preview ${index + 1}`}
+                                        onError={(e) => { e.target.src = placeholderImg; }}
+                                    />
+                                </button>
+                            ))}
                         </div>
                     </div>
 
@@ -697,6 +736,41 @@ const DesignDetails = () => {
                                 {updatingDesign && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
                                 Save Changes
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {activePreviewImage && (
+                <div
+                    className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-sm p-4 sm:p-6"
+                    onClick={() => setActivePreviewImage(null)}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Image preview"
+                >
+                    <button
+                        type="button"
+                        onClick={() => setActivePreviewImage(null)}
+                        className="absolute right-4 top-4 sm:right-6 sm:top-6 z-10 flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/12 text-white transition hover:bg-white/20"
+                        aria-label="Close image preview"
+                    >
+                        <X size={20} />
+                    </button>
+
+                    <div className="flex h-full items-center justify-center">
+                        <div
+                            className="relative max-h-full max-w-6xl overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 p-3 sm:p-4 shadow-2xl"
+                            onClick={(event) => event.stopPropagation()}
+                        >
+                            <img
+                                src={activePreviewImage}
+                                alt={`${design.title} enlarged preview`}
+                                className="max-h-[85vh] w-auto max-w-full rounded-[1.5rem] object-contain"
+                                onError={(e) => { e.target.src = placeholderImg; }}
+                                onContextMenu={(e) => e.preventDefault()}
+                                draggable={false}
+                            />
                         </div>
                     </div>
                 </div>
