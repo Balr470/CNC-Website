@@ -15,7 +15,8 @@ router.route('/')
         restrictToAdmin,
         uploadLimiter,
         upload.fields([
-            { name: "preview", maxCount: 1 },
+            { name: "mainImage", maxCount: 1 },
+            { name: "additionalImages", maxCount: 5 },
             { name: "cnc", maxCount: 1 }
         ]),
         designController.createDesign

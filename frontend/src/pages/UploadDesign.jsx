@@ -83,7 +83,8 @@ const UploadDesign = () => {
     const [description, setDescription] = useState('');
     const [price, setPrice] = useState(0);
     const [category, setCategory] = useState('3d-designs');
-    const [previewFile, setPreviewFile] = useState(null);
+    const [mainImage, setMainImage] = useState(null);
+    const [additionalImages, setAdditionalImages] = useState([]);
     const [cncFile, setCncFile] = useState(null);
 
     const [loading, setLoading] = useState(false);
@@ -149,14 +150,21 @@ const UploadDesign = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (!previewFile || !cncFile) {
-            toast.error('Both a preview image and the CNC file are required!');
+        if (!mainImage || !cncFile) {
+            toast.error('Main image and CNC file are required!');
             return;
         }
 
-        if (previewFile.size > MAX_PREVIEW_IMAGE_SIZE_BYTES) {
-            toast.error(`Preview image is ${formatFileSize(previewFile.size)}. Max allowed is 2.00 MB.`);
+        if (mainImage.size > MAX_PREVIEW_IMAGE_SIZE_BYTES) {
+            toast.error(`Main image is ${formatFileSize(mainImage.size)}. Max allowed is 2.00 MB.`);
             return;
+        }
+
+        for (const img of additionalImages) {
+            if (img.size > MAX_PREVIEW_IMAGE_SIZE_BYTES) {
+                toast.error(`Additional image "${img.name}" is ${formatFileSize(img.size)}. Max allowed is 2.00 MB.`);
+                return;
+            }
         }
 
         if (cncFile.size > MAX_CNC_FILE_SIZE_BYTES) {
@@ -170,8 +178,9 @@ const UploadDesign = () => {
             return;
         }
 
-        // Reset and start progress tracking
-        const totalFileSize = previewFile.size + cncFile.size;
+        // Calculate total file size including all additional images
+        const additionalImagesSize = additionalImages.reduce((acc, img) => acc + img.size, 0);
+        const totalFileSize = mainImage.size + additionalImagesSize + cncFile.size;
         startProgressSimulation(totalFileSize);
         setLoading(true);
         
@@ -187,7 +196,10 @@ const UploadDesign = () => {
             formData.append('description', description);
             formData.append('price', Number(price));
             formData.append('category', category);
-            formData.append('preview', previewFile);
+            formData.append('mainImage', mainImage);
+            additionalImages.forEach((img) => {
+                formData.append('additionalImages', img);
+            });
             formData.append('cnc', cncFile);
 
             await uploadDesign(formData, handleUploadProgress);
@@ -306,26 +318,88 @@ const UploadDesign = () => {
                                     <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black">2</span> Attached Files
                                 </h3>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-6">
+                                    {/* Main Image */}
                                     <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200 border-dashed hover:border-blue-400 hover:bg-blue-50/50 transition-colors group">
-                                        <label className="block text-sm font-bold text-gray-900 mb-3 cursor-pointer">Preview Image (Cover)</label>
+                                        <label className="block text-sm font-bold text-gray-900 mb-3 cursor-pointer">
+                                            Main Image (Cover) <span className="text-red-500">*</span>
+                                        </label>
                                         <input
                                             type="file"
                                             accept="image/*"
-                                            onChange={(e) => setPreviewFile(e.target.files[0])}
+                                            onChange={(e) => setMainImage(e.target.files[0])}
                                             required
                                             className="w-full text-sm font-medium text-gray-500 file:mr-4 file:py-2.5 file:px-5 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-[#111] file:text-white hover:file:bg-black cursor-pointer"
                                         />
-                                        {previewFile && (
-                                            <p className="text-xs text-gray-500 mt-3 font-semibold">
-                                                Selected: {previewFile.name} ({formatFileSize(previewFile.size)})
-                                            </p>
+                                        {mainImage && (
+                                            <div className="mt-3 flex items-center gap-3">
+                                                <img 
+                                                    src={URL.createObjectURL(mainImage)} 
+                                                    alt="Main preview" 
+                                                    className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+                                                />
+                                                <div>
+                                                    <p className="text-xs text-gray-500 font-semibold">{mainImage.name}</p>
+                                                    <p className="text-xs text-gray-400">{formatFileSize(mainImage.size)}</p>
+                                                </div>
+                                            </div>
                                         )}
-                                        <p className="text-xs text-gray-400 mt-4 leading-relaxed font-medium">Use high-quality 4:3 images (JPG, PNG, WEBP). Recommended size: 1200x900px. Max 2MB.</p>
+                                        <p className="text-xs text-gray-400 mt-4 leading-relaxed font-medium">This will be the main thumbnail for your design. Use high-quality 4:3 images (JPG, PNG, WEBP). Recommended size: 1200x900px. Max 2MB.</p>
                                     </div>
 
+                                    {/* Additional Images */}
+                                    <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200 border-dashed hover:border-green-400 hover:bg-green-50/50 transition-colors group">
+                                        <label className="block text-sm font-bold text-gray-900 mb-3 cursor-pointer">
+                                            Additional Images <span className="text-gray-400 font-normal">(optional, max 5)</span>
+                                        </label>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            onChange={(e) => {
+                                                const files = Array.from(e.target.files);
+                                                if (files.length + additionalImages.length > 5) {
+                                                    toast.error('Maximum 5 additional images allowed');
+                                                    return;
+                                                }
+                                                setAdditionalImages(prev => [...prev, ...files].slice(0, 5));
+                                            }}
+                                            className="w-full text-sm font-medium text-gray-500 file:mr-4 file:py-2.5 file:px-5 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-green-600 file:text-white hover:file:bg-green-700 cursor-pointer"
+                                        />
+                                        {additionalImages.length > 0 && (
+                                            <div className="mt-3 space-y-2">
+                                                {additionalImages.map((img, index) => (
+                                                    <div key={index} className="flex items-center justify-between bg-white p-2 rounded-lg border border-gray-200">
+                                                        <div className="flex items-center gap-3">
+                                                            <img 
+                                                                src={URL.createObjectURL(img)} 
+                                                                alt={`Additional ${index + 1}`} 
+                                                                className="w-14 h-14 object-cover rounded-lg"
+                                                            />
+                                                            <div>
+                                                                <p className="text-xs text-gray-500 font-semibold truncate max-w-[200px]">{img.name}</p>
+                                                                <p className="text-xs text-gray-400">{formatFileSize(img.size)}</p>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setAdditionalImages(prev => prev.filter((_, i) => i !== index))}
+                                                            className="p-1.5 hover:bg-red-50 rounded-full text-red-500 transition-colors"
+                                                        >
+                                                            <X size={16} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <p className="text-xs text-gray-400 mt-4 leading-relaxed font-medium">Add more images to show different angles or details of your design. Max 5 images, 2MB each.</p>
+                                    </div>
+
+                                    {/* CNC File */}
                                     <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200 border-dashed hover:border-purple-400 hover:bg-purple-50/50 transition-colors group">
-                                        <label className="block text-sm font-bold text-gray-900 mb-3 cursor-pointer">CNC Source File</label>
+                                        <label className="block text-sm font-bold text-gray-900 mb-3 cursor-pointer">
+                                            CNC Source File <span className="text-red-500">*</span>
+                                        </label>
                                         <input
                                             type="file"
                                             accept={SUPPORTED_CNC_ACCEPT}

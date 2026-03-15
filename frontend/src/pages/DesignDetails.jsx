@@ -6,7 +6,7 @@ import { getDesignReviews, createReview } from '../services/review.service';
 import { AuthContext } from '../context/AuthContext';
 import { toggleWishlist, toggleCart } from '../services/auth.service';
 import PriceTag from '../components/PriceTag';
-import { Download, ShieldCheck, Clock, DownloadCloud, Trash2, CheckCircle2, Star, Share2, Heart, MessageSquare, ShoppingCart, Edit3, X } from 'lucide-react';
+import { Download, ShieldCheck, Clock, DownloadCloud, Trash2, CheckCircle2, Star, Share2, Heart, MessageSquare, ShoppingCart, Edit3, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import NotFound from './NotFound';
 import placeholderImg from '../assets/wood_part_placeholder.png';
@@ -50,6 +50,7 @@ const DesignDetails = () => {
     const [editForm, setEditForm] = useState({ title: '', description: '', price: 0, category: '' });
     const [updatingDesign, setUpdatingDesign] = useState(false);
     const [activePreviewImage, setActivePreviewImage] = useState(null);
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
     useEffect(() => {
         const fetchDesign = async () => {
@@ -92,14 +93,36 @@ const DesignDetails = () => {
             }
         };
 
+        const handleKeyDown = (event) => {
+            if (event.key === 'ArrowLeft') {
+                goToPreviousImage();
+            } else if (event.key === 'ArrowRight') {
+                goToNextImage();
+            }
+        };
+
         document.body.style.overflow = 'hidden';
         window.addEventListener('keydown', handleEscape);
+        window.addEventListener('keydown', handleKeyDown);
 
         return () => {
             document.body.style.overflow = '';
             window.removeEventListener('keydown', handleEscape);
+            window.removeEventListener('keydown', handleKeyDown);
         };
     }, [activePreviewImage]);
+
+    const goToNextImage = () => {
+        const newIndex = (currentImageIndex + 1) % previewImages.length;
+        setCurrentImageIndex(newIndex);
+        setActivePreviewImage(previewImages[newIndex]);
+    };
+
+    const goToPreviousImage = () => {
+        const newIndex = (currentImageIndex - 1 + previewImages.length) % previewImages.length;
+        setCurrentImageIndex(newIndex);
+        setActivePreviewImage(previewImages[newIndex]);
+    };
 
     const handleToggleWishlist = async () => {
         if (!user) {
@@ -338,6 +361,12 @@ const DesignDetails = () => {
     const fmt = getDesignFormat(design);
     const previewImages = design.previewImages?.length ? design.previewImages : [placeholderImg];
 
+    // Sync current image index when modal opens
+    const openPreview = (image, index) => {
+        setCurrentImageIndex(index);
+        setActivePreviewImage(image);
+    };
+
     return (
         <div className="min-h-screen bg-[#f8f9fc] pt-8 pb-24 font-sans selection:bg-black selection:text-white">
             <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12">
@@ -379,7 +408,7 @@ const DesignDetails = () => {
 
                             <button
                                 type="button"
-                                onClick={() => setActivePreviewImage(previewImages[0])}
+                                onClick={() => openPreview(previewImages[0], 0)}
                                 className="w-full h-full cursor-zoom-in"
                                 aria-label="Open large preview image"
                             >
@@ -400,8 +429,8 @@ const DesignDetails = () => {
                                 <button
                                     key={`${image}-${index}`}
                                     type="button"
-                                    onClick={() => setActivePreviewImage(image)}
-                                    className={`w-24 h-24 rounded-2xl bg-white p-2 flex-shrink-0 cursor-pointer shadow-sm transition-colors ${activePreviewImage === image || index === 0
+                                    onClick={() => openPreview(image, index)}
+                                    className={`w-24 h-24 rounded-2xl bg-white p-2 flex-shrink-0 cursor-pointer shadow-sm transition-colors ${currentImageIndex === index
                                         ? 'border-2 border-black'
                                         : 'border border-gray-100 hover:border-black/30 opacity-80 hover:opacity-100'
                                         }`}
@@ -763,7 +792,31 @@ const DesignDetails = () => {
                         <X size={20} />
                     </button>
 
-                    <div className="flex h-full items-center justify-center">
+                    {/* Previous button */}
+                    {previewImages.length > 1 && (
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); goToPreviousImage(); }}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 z-10 flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/12 text-white transition hover:bg-white/30"
+                            aria-label="Previous image"
+                        >
+                            <ChevronLeft size={24} />
+                        </button>
+                    )}
+
+                    {/* Next button */}
+                    {previewImages.length > 1 && (
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); goToNextImage(); }}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/12 text-white transition hover:bg-white/30"
+                            aria-label="Next image"
+                        >
+                            <ChevronRight size={24} />
+                        </button>
+                    )}
+
+                    <div className="flex h-full flex-col items-center justify-center">
                         <div
                             className="relative max-h-full max-w-6xl overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 p-3 sm:p-4 shadow-2xl"
                             onClick={(event) => event.stopPropagation()}
@@ -777,6 +830,44 @@ const DesignDetails = () => {
                                 draggable={false}
                             />
                         </div>
+
+                        {/* Image counter */}
+                        {previewImages.length > 1 && (
+                            <div className="mt-4 flex items-center gap-2">
+                                <span className="text-white/70 text-sm font-medium">
+                                    {currentImageIndex + 1} / {previewImages.length}
+                                </span>
+                            </div>
+                        )}
+
+                        {/* Thumbnail strip */}
+                        {previewImages.length > 1 && (
+                            <div className="mt-4 flex gap-2 overflow-x-auto max-w-full px-4 hide-scrollbar">
+                                {previewImages.map((image, index) => (
+                                    <button
+                                        key={`thumb-${index}`}
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setCurrentImageIndex(index);
+                                            setActivePreviewImage(image);
+                                        }}
+                                        className={`w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
+                                            currentImageIndex === index
+                                                ? 'border-white opacity-100'
+                                                : 'border-transparent opacity-50 hover:opacity-80'
+                                        }`}
+                                    >
+                                        <img
+                                            src={image}
+                                            alt={`Thumbnail ${index + 1}`}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => { e.target.src = placeholderImg; }}
+                                        />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

@@ -80,18 +80,20 @@ exports.createDesign = async (req, res) => {
             price: req.body.price,
         });
 
-        if (!req.files || !req.files.preview || !req.files.cnc) {
-            return errorResponse(res, 400, 'Please provide both a preview image and the CNC file.');
+        if (!req.files || !req.files.mainImage || !req.files.cnc) {
+            return errorResponse(res, 400, 'Please provide a main image and the CNC file.');
         }
 
-        const previewFile = req.files.preview[0];
+        const mainImageFile = req.files.mainImage[0];
+        const additionalImageFiles = req.files.additionalImages || [];
         const cncFile = req.files.cnc[0]; // From memory buffer
         const userId = req.user.id; // From protect middleware
 
         // Business logic execution
         const newDesign = await designService.createDesign(
             validatedDesign,
-            previewFile,
+            mainImageFile,
+            additionalImageFiles,
             cncFile,
             userId
         );

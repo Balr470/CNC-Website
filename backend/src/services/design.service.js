@@ -125,12 +125,12 @@ exports.getDesignDocumentById = async (id) => {
 };
 
 // Create a new design: watermark the Cloudinary preview and store the CNC source file in Appwrite private storage.
-exports.createDesign = async (designData, previewFile, cncFile, userId) => {
-    // Fix #2: safely get the Cloudinary public_id — filename is set by multer-storage-cloudinary
-    const publicId = previewFile.filename || previewFile.public_id;
-    if (!publicId) throw new Error('Preview image upload failed — no public_id returned from Cloudinary');
+exports.createDesign = async (designData, mainImageFile, additionalImageFiles, cncFile, userId) => {
+    // Watermark main image
+    const mainPublicId = mainImageFile.filename || mainImageFile.public_id;
+    if (!mainPublicId) throw new Error('Main image upload failed — no public_id returned from Cloudinary');
 
-    const watermarkedUrl = cloudinary.url(publicId, {
+    const watermarkedMainUrl = cloudinary.url(mainPublicId, {
         secure: true,
         transformation: [
             { width: 800, crop: "scale" },
@@ -147,6 +147,38 @@ exports.createDesign = async (designData, previewFile, cncFile, userId) => {
             }
         ]
     });
+
+    // Watermark additional images
+    const watermarkedAdditionalUrls = await Promise.all(
+        (additionalImageFiles || []).map(async (imgFile) => {
+            const publicId = imgFile.filename || imgFile.public_id;
+            if (!publicId) return null;
+
+            return cloudinary.url(publicId, {
+                secure: true,
+                transformation: [
+                    { width: 800, crop: "scale" },
+                    {
+                        overlay: {
+                            font_family: "Arial",
+                            font_size: 40,
+                            text: "CNC-MARKETPLACE"
+                        },
+                        gravity: "south",
+                        y: 20,
+                        color: "white",
+                        opacity: 50
+                    }
+                ]
+            });
+        })
+    );
+
+    // Filter out null values and combine all preview images
+    const allPreviewImages = [
+        watermarkedMainUrl,
+        ...watermarkedAdditionalUrls.filter(url => url !== null)
+    ];
 
     // Upload the protected source file to storage (R2 for files > 25MB, Appwrite for smaller files)
     const fileSize = cncFile.buffer.length;
@@ -174,7 +206,7 @@ exports.createDesign = async (designData, previewFile, cncFile, userId) => {
         description: designData.description,
         price: Number(designData.price),
         category: designData.category || 'other',
-        previewImages: [watermarkedUrl],
+        previewImages: allPreviewImages,
         fileKey,
         uploadedBy: userId
     });

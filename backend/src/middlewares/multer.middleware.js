@@ -21,7 +21,7 @@ const imageStorage = new CloudinaryStorage({
 // as protected raw assets via the service layer.
 const hybridStorage = {
     _handleFile(req, file, cb) {
-        if (file.fieldname === 'preview') {
+        if (file.fieldname === 'mainImage' || file.fieldname === 'additionalImages') {
             imageStorage._handleFile(req, file, cb);
             return;
         }
@@ -41,7 +41,7 @@ const hybridStorage = {
         file.stream.on('error', cb);
     },
     _removeFile(req, file, cb) {
-        if (file.fieldname === 'preview' && imageStorage._removeFile) {
+        if ((file.fieldname === 'mainImage' || file.fieldname === 'additionalImages') && imageStorage._removeFile) {
             imageStorage._removeFile(req, file, cb);
             return;
         }
