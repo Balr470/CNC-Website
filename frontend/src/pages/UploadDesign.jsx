@@ -1,15 +1,82 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { uploadDesign } from '../services/design.service';
 import toast from 'react-hot-toast';
-import { UploadCloud, CheckCircle2 } from 'lucide-react';
+import { UploadCloud, CheckCircle2, X, Zap, ArrowUp } from 'lucide-react';
 import { categoryGroups } from '../content/categories';
 
 const SUPPORTED_CNC_EXTENSIONS = ['dxf', 'stl', 'svg', 'obj', 'nc', 'gcode', 'tap', 'ngc', 'cmx', 'rlf', 'art', 'rar', 'rar4', 'zip'];
 const SUPPORTED_CNC_ACCEPT = SUPPORTED_CNC_EXTENSIONS.map((ext) => `.${ext}`).join(',');
 const MAX_PREVIEW_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
-const MAX_CNC_FILE_SIZE_BYTES = 30 * 1024 * 1024;
-const formatFileSize = (bytes) => `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+const MAX_CNC_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100MB - handled by R2 for files >25MB
+const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+const UploadProgressBar = ({ progress, uploadedBytes, totalBytes, uploadSpeed, status, estimatedTime }) => {
+    const percentage = Math.min(progress, 100);
+    
+    const formatTime = (seconds) => {
+        if (!seconds || seconds <= 0) return 'Calculating...';
+        if (seconds < 60) return `${seconds}s remaining`;
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s remaining`;
+        return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m remaining`;
+    };
+    
+    return (
+        <div className="fixed bottom-6 right-6 z-50 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in slide-in-from-bottom-5">
+            <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            status === 'complete' ? 'bg-green-100' : status === 'error' ? 'bg-red-100' : 'bg-blue-100'
+                        }`}>
+                            {status === 'complete' ? (
+                                <CheckCircle2 size={16} className="text-green-600" />
+                            ) : status === 'error' ? (
+                                <X size={16} className="text-red-600" />
+                            ) : (
+                                <ArrowUp size={16} className="text-blue-600" />
+                            )}
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-gray-900">
+                                {status === 'complete' ? 'Upload Complete!' : status === 'error' ? 'Upload Failed' : 'Uploading...'}
+                            </p>
+                            <p className="text-xs text-gray-500">{formatFileSize(uploadedBytes)} / {formatFileSize(totalBytes)}</p>
+                        </div>
+                    </div>
+                    <span className="text-lg font-black text-gray-900">{percentage}%</span>
+                </div>
+                
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-3">
+                    <div 
+                        className={`h-full rounded-full transition-all duration-300 ${
+                            status === 'complete' ? 'bg-green-500' : status === 'error' ? 'bg-red-500' : 'bg-blue-500'
+                        }`}
+                        style={{ width: `${percentage}%` }}
+                    />
+                </div>
+                
+                {status === 'uploading' && (
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                        <div className="flex items-center gap-1">
+                            <Zap size={12} className="text-amber-500" />
+                            <span>{formatFileSize(uploadSpeed)}/s</span>
+                        </div>
+                        {estimatedTime && (
+                            <span className="text-blue-600 font-medium">{formatTime(estimatedTime)}</span>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
 
 const UploadDesign = () => {
     const [title, setTitle] = useState('');
@@ -20,7 +87,64 @@ const UploadDesign = () => {
     const [cncFile, setCncFile] = useState(null);
 
     const [loading, setLoading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadStatus, setUploadStatus] = useState('idle'); // idle, uploading, complete, error
+    const [uploadedBytes, setUploadedBytes] = useState(0);
+    const [totalBytes, setTotalBytes] = useState(0);
+    const [uploadSpeed, setUploadSpeed] = useState(0);
+    const [estimatedTime, setEstimatedTime] = useState(null);
+    
+    const lastUpdateRef = useRef({ bytes: 0, time: Date.now() });
+    const speedHistoryRef = useRef([]);
     const navigate = useNavigate();
+
+    const startProgressSimulation = (total) => {
+        lastUpdateRef.current = { bytes: 0, time: Date.now() };
+        speedHistoryRef.current = [];
+        setTotalBytes(total);
+        setUploadedBytes(0);
+        setUploadProgress(0);
+        setUploadSpeed(0);
+        setEstimatedTime(null);
+        setUploadStatus('uploading');
+    };
+
+    const updateProgress = (bytesUploaded, total) => {
+        const now = Date.now();
+        
+        setUploadedBytes(bytesUploaded);
+        setTotalBytes(total);
+        
+        // Calculate real-time speed based on difference from last update
+        const timeDiff = now - lastUpdateRef.current.time;
+        const bytesDiff = bytesUploaded - lastUpdateRef.current.bytes;
+        
+        if (timeDiff > 100 && bytesDiff > 0) { // Update every 100ms minimum
+            const instantSpeed = Math.round((bytesDiff / timeDiff) * 1000); // bytes per second
+            
+            // Smooth speed using moving average
+            speedHistoryRef.current.push(instantSpeed);
+            if (speedHistoryRef.current.length > 8) {
+                speedHistoryRef.current.shift();
+            }
+            
+            const avgSpeed = speedHistoryRef.current.reduce((a, b) => a + b, 0) / speedHistoryRef.current.length;
+            setUploadSpeed(avgSpeed);
+            
+            // Calculate estimated time remaining
+            if (avgSpeed > 0 && bytesUploaded < total) {
+                const remainingBytes = total - bytesUploaded;
+                const remainingSeconds = Math.round(remainingBytes / avgSpeed);
+                setEstimatedTime(remainingSeconds);
+            }
+            
+            lastUpdateRef.current = { bytes: bytesUploaded, time: now };
+        }
+        
+        // Calculate progress percentage
+        const progress = total > 0 ? Math.round((bytesUploaded / total) * 100) : 0;
+        setUploadProgress(progress);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -36,7 +160,7 @@ const UploadDesign = () => {
         }
 
         if (cncFile.size > MAX_CNC_FILE_SIZE_BYTES) {
-            toast.error(`CNC file is ${formatFileSize(cncFile.size)}. Max allowed is 30.00 MB.`);
+            toast.error(`CNC file is ${formatFileSize(cncFile.size)}. Max allowed is 100.00 MB.`);
             return;
         }
 
@@ -46,7 +170,17 @@ const UploadDesign = () => {
             return;
         }
 
+        // Reset and start progress tracking
+        const totalFileSize = previewFile.size + cncFile.size;
+        startProgressSimulation(totalFileSize);
         setLoading(true);
+        
+        const handleUploadProgress = (progressEvent) => {
+            if (progressEvent.total) {
+                updateProgress(progressEvent.loaded, progressEvent.total);
+            }
+        };
+        
         try {
             const formData = new FormData();
             formData.append('title', title);
@@ -56,13 +190,24 @@ const UploadDesign = () => {
             formData.append('preview', previewFile);
             formData.append('cnc', cncFile);
 
-            await uploadDesign(formData);
+            await uploadDesign(formData, handleUploadProgress);
 
+            setUploadProgress(100);
+            setUploadedBytes(totalFileSize);
+            setUploadSpeed(0);
+            setEstimatedTime(null);
+            setUploadStatus('complete');
             toast.success('Design uploaded successfully!');
-            navigate('/');
+            
+            setTimeout(() => {
+                navigate('/');
+            }, 1500);
         } catch (error) {
-            // Fix #7: axios errors carry the real message in error.response.data.error
-            toast.error(error.response?.data?.error || error.message || 'Upload failed');
+            setUploadStatus('error');
+            toast.error(error.message || 'Upload failed');
+            setTimeout(() => {
+                setUploadStatus('idle');
+            }, 3000);
         } finally {
             setLoading(false);
         }
@@ -193,14 +338,14 @@ const UploadDesign = () => {
                                                 Selected: {cncFile.name} ({formatFileSize(cncFile.size)})
                                             </p>
                                         )}
-                                        <p className="text-xs text-gray-400 mt-4 leading-relaxed font-medium">Supported: DXF, STL, SVG, OBJ, NC, GCODE, TAP, NGC, CMX, RLF, ART, RAR, RAR4, ZIP. Max 30MB.</p>
+                                        <p className="text-xs text-gray-400 mt-4 leading-relaxed font-medium">Supported: DXF, STL, SVG, OBJ, NC, GCODE, TAP, NGC, CMX, RLF, ART, RAR, RAR4, ZIP. Max 100MB (files >25MB stored on R2).</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         <div className="mt-12 pt-8 border-t border-gray-100 flex items-center justify-between">
-                            <p className="text-xs text-gray-400 font-medium max-w-sm">By publishing, you agree to our creator terms. Preview images are stored on Cloudinary and CNC source files are stored securely on Appwrite.</p>
+                            <p className="text-xs text-gray-400 font-medium max-w-sm">By publishing, you agree to our creator terms. Preview images are stored on Cloudinary and CNC source files are stored securely on Appwrite/R2.</p>
                             <button
                                 type="submit"
                                 disabled={loading}
@@ -221,6 +366,18 @@ const UploadDesign = () => {
                     </form>
                 </div>
             </div>
+
+            {/* Upload Progress Bar */}
+            {uploadStatus !== 'idle' && (
+                <UploadProgressBar 
+                    progress={uploadProgress}
+                    uploadedBytes={uploadedBytes}
+                    totalBytes={totalBytes}
+                    uploadSpeed={uploadSpeed}
+                    status={uploadStatus}
+                    estimatedTime={estimatedTime}
+                />
+            )}
         </div>
     );
 };

@@ -10,10 +10,46 @@ export const getDesignById = async (id) => {
     return response.data;
 };
 
-export const uploadDesign = async (designData) => {
-    // Axios will automatically handle the Content-Type and boundary for FormData
-    const response = await api.post('/designs', designData);
-    return response.data;
+export const uploadDesign = async (designData, onUploadProgress) => {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'}/designs`);
+        xhr.withCredentials = true;
+        
+        xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable && onUploadProgress) {
+                onUploadProgress({
+                    loaded: event.loaded,
+                    total: event.total,
+                    percentCompleted: Math.round((event.loaded * 100) / event.total)
+                });
+            }
+        };
+        
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    resolve(response);
+                } catch (e) {
+                    resolve(xhr.response);
+                }
+            } else {
+                try {
+                    const error = JSON.parse(xhr.responseText);
+                    reject(new Error(error.error || error.message || 'Upload failed'));
+                } catch (e) {
+                    reject(new Error('Upload failed'));
+                }
+            }
+        };
+        
+        xhr.onerror = () => {
+            reject(new Error('Network error. Please check your connection.'));
+        };
+        
+        xhr.send(designData);
+    });
 };
 
 export const getDownloadLink = async (designId) => {

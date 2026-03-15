@@ -2,7 +2,16 @@ const Design = require('../models/Design.model');
 const Review = require('../models/Review.model');
 const cloudinary = require('../config/cloudinary');
 const uploadToAppwrite = require('../utils/uploadToAppwrite');
-const serializeDesign = require('../utils/serializeDesign');
+const uploadToR2 = require('../utils/uploadToR2');
+
+const LARGE_FILE_THRESHOLD = 25 * 1024 * 1024; // 25MB
+
+// Serialize design to remove sensitive fields
+const serializeDesign = (design) => {
+    const obj = design.toObject();
+    delete obj.fileKey;
+    return obj;
+};
 
 // Get all active designs with populated user info, optionally filtered by category/search/sort/page
 exports.getAllDesigns = async ({ category, search, sort, page, limit, priceType, fileType } = {}) => {
@@ -100,8 +109,11 @@ exports.getDesignById = async (id) => {
 
     const stats = reviewStats[0] || { avgRating: 0, count: 0 };
 
+    // Serialize the design (remove fileKey)
+    const serialized = serializeDesign(design);
+
     return {
-        ...serializeDesign(design),
+        ...serialized,
         avgRating: stats.avgRating,
         reviewCount: stats.count
     };
@@ -135,12 +147,25 @@ exports.createDesign = async (designData, previewFile, cncFile, userId) => {
         ]
     });
 
-    // Upload the protected source file to Appwrite storage.
-    const fileKey = await uploadToAppwrite(
-        cncFile.buffer,
-        cncFile.mimetype,
-        cncFile.originalname
-    );
+    // Upload the protected source file to storage (R2 for files > 25MB, Appwrite for smaller files)
+    const fileSize = cncFile.buffer.length;
+    let fileKey;
+    
+    if (fileSize > LARGE_FILE_THRESHOLD) {
+        // Use R2 for large files (>25MB)
+        fileKey = await uploadToR2(
+            cncFile.buffer,
+            cncFile.mimetype,
+            cncFile.originalname
+        );
+    } else {
+        // Use Appwrite for smaller files
+        fileKey = await uploadToAppwrite(
+            cncFile.buffer,
+            cncFile.mimetype,
+            cncFile.originalname
+        );
+    }
 
     // Save to database
     return await Design.create({

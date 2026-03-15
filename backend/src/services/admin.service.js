@@ -22,7 +22,7 @@ exports.getDashboardStats = async () => {
     const totalRevenue = revenueResult[0]?.total || 0;
 
     // 3. MongoDB Storage Stats
-    let dbStats = { dataSize: 0, storageSize: 0, totalLimit: '512' };
+    let dbStats = { dataSize: 0, storageSize: 0, totalLimit: '512', limitType: 'Free M0 Cluster' };
     try {
         if (mongoose.connection.db) {
             const stats = await mongoose.connection.db.command({ dbStats: 1 });
@@ -34,15 +34,17 @@ exports.getDashboardStats = async () => {
     }
 
     // 4. Cloudinary Usage
-    let cloudinaryStats = { status: 'Not Configured', bandwidth: 0, storage: 0, credits: 0 };
+    let cloudinaryStats = { status: 'Not Configured', bandwidth: 0, storage: 0, credits: 0, storageLimit: '25 GB' };
     try {
         if (process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_KEY !== 'your_cloudinary_api_key_goes_here') {
             const usage = await cloudinary.api.usage();
             cloudinaryStats = {
                 status: 'Active',
                 plan: usage.plan,
+                planLimit: '25 GB',
                 bandwidth: (usage.bandwidth.usage / 1024 / 1024).toFixed(2),
                 storage: (usage.storage.usage / 1024 / 1024).toFixed(2),
+                storageLimit: '25 GB',
                 credits: usage.credits.usage
             };
         } else {
@@ -98,6 +100,7 @@ exports.getDashboardStats = async () => {
                 totalFiles,
                 totalSize: (totalBytes / 1024 / 1024).toFixed(2),
                 maxFileSizeMb: ((bucket.maximumFileSize || 0) / 1024 / 1024).toFixed(2),
+                storageLimit: '10 GB',
                 fileSecurity: Boolean(bucket.fileSecurity),
                 enabled: Boolean(bucket.enabled),
             };
@@ -110,33 +113,87 @@ exports.getDashboardStats = async () => {
         };
     }
 
-    // 6. Legacy R2 visibility for old deployments only
-    let r2Stats = { status: 'Inactive', totalFiles: 0, totalSize: 0 };
+    // 6. Cloudflare R2 Storage (for large files >25MB)
+    let r2Stats = { status: 'Inactive', totalFiles: 0, totalSize: 0, bucketName: '', endpoint: '' };
     try {
         if (
             process.env.R2_BUCKET_NAME &&
-            !String(process.env.R2_BUCKET_NAME).includes('your-production-r2-bucket-name') &&
-            !String(process.env.R2_BUCKET_NAME).includes('your-r2-bucket-name')
+            process.env.R2_ENDPOINT &&
+            process.env.R2_ACCESS_KEY &&
+            !String(process.env.R2_BUCKET_NAME).includes('your-')
         ) {
             const command = new ListObjectsV2Command({
                 Bucket: process.env.R2_BUCKET_NAME
             });
             const response = await r2.send(command);
-            if (response.Contents) {
-                r2Stats = {
-                    status: 'Active',
-                    totalFiles: response.Contents.length,
-                    totalSize: (response.Contents.reduce((acc, item) => acc + item.Size, 0) / 1024 / 1024).toFixed(2),
-                };
-            }
+            
+            const files = response.Contents || [];
+            const totalBytes = files.reduce((acc, item) => acc + item.Size, 0);
+            
+            r2Stats = {
+                status: 'Active',
+                totalFiles: files.length,
+                totalSize: (totalBytes / 1024 / 1024).toFixed(2),
+                bucketName: process.env.R2_BUCKET_NAME,
+                endpoint: process.env.R2_ENDPOINT,
+                storageLimit: '10 GB',
+                isPrimary: true,
+                largeFileThreshold: '25MB',
+                usage: files.length > 0 ? 'Primary storage for large files' : 'Ready for large file uploads'
+            };
         }
     } catch (err) {
-        r2Stats = { status: 'Error', error: err.message, totalFiles: 0, totalSize: 0 };
+        r2Stats = { 
+            status: 'Error', 
+            error: err.message, 
+            totalFiles: 0, 
+            totalSize: 0,
+            bucketName: process.env.R2_BUCKET_NAME || '',
+            endpoint: process.env.R2_ENDPOINT || ''
+        };
     }
 
+    // 7. Get order/payment stats
+    const orderStats = await Order.aggregate([
+        { $match: { paymentStatus: 'success' } },
+        { $group: { 
+            _id: null, 
+            totalOrders: { $sum: 1 },
+            totalRevenue: { $sum: '$amount' },
+            avgOrderValue: { $avg: '$amount' }
+        }}
+    ]);
+
+    // 8. Get design stats by category
+    const categoryStats = await Design.aggregate([
+        { $match: { isActive: true } },
+        { $group: { _id: '$category', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+    ]);
+
+    // 9. Get recent activity (last 7 days)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentStats = await Promise.all([
+        User.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
+        Design.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
+        Order.countDocuments({ createdAt: { $gte: sevenDaysAgo }, paymentStatus: 'success' })
+    ]);
+
     return {
-        counts: { users: totalUsers, designs: totalDesigns },
+        counts: { 
+            users: totalUsers, 
+            designs: totalDesigns,
+            newUsers: recentStats[0],
+            newDesigns: recentStats[1],
+            recentOrders: recentStats[2]
+        },
         revenue: totalRevenue,
+        orders: {
+            total: orderStats[0]?.totalOrders || 0,
+            avgValue: orderStats[0]?.avgOrderValue?.toFixed(2) || 0
+        },
+        categories: categoryStats.map(c => ({ name: c._id, count: c.count })),
         storage: {
             mongodb: dbStats,
             cloudinary: cloudinaryStats,

@@ -145,6 +145,8 @@ const DesignDetails = () => {
                     token: data.data.token,
                 });
             }
+            // R2 provider - signed URL is returned directly
+            // No additional handling needed, downloadUrl contains the signed URL
 
             if (!downloadHref) {
                 throw new Error('Download link was not returned.');

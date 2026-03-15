@@ -1,5 +1,5 @@
 const MAX_PREVIEW_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
-const MAX_CNC_FILE_SIZE_BYTES = 30 * 1024 * 1024;
+const MAX_CNC_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100MB - handled by R2 for files >25MB
 const CLOUDINARY_CNC_CHUNK_SIZE_BYTES = 6 * 1024 * 1024;
 
 module.exports = {

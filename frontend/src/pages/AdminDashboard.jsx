@@ -368,7 +368,10 @@ const AdminDashboard = () => {
 
     if (!stats) return null;
 
-    const { counts, revenue, storage } = stats;
+    const { counts, revenue, storage, orders, categories } = stats;
+    
+    // Handle nested stats object from backend
+    const statsData = stats.orders ? stats : { orders: { total: 0, avgValue: 0 }, categories: [], ...stats };
 
     // BUG FIX #6: revenue could be undefined if the aggregate returns nothing
     // (e.g. no successful orders yet). toLocaleString() on undefined throws.
@@ -391,70 +394,129 @@ const AdminDashboard = () => {
 
                 {/* General App Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 xl:gap-8 mb-12">
-                    <StatCard title="Total Users" value={counts.users} icon={Users} color="blue" />
-                    <StatCard title="Total Designs" value={counts.designs} icon={FileBox} color="purple" />
+                    <StatCard 
+                        title="Total Users" 
+                        value={counts.users} 
+                        subValue={`+${counts.newUsers || 0} this week`}
+                        icon={Users} 
+                        color="blue" 
+                    />
+                    <StatCard 
+                        title="Total Designs" 
+                        value={counts.designs} 
+                        subValue={`+${counts.newDesigns || 0} this week`}
+                        icon={FileBox} 
+                        color="purple" 
+                    />
                     <StatCard
                         title="Gross Revenue"
                         value={`₹${safeRevenue.toLocaleString()}`}
+                        subValue={`${counts.recentOrders || 0} orders this week • Avg: ₹${(stats.orders?.avgValue || 0).toLocaleString()}`}
                         icon={IndianRupee}
                         color="green"
                     />
+                </div>
+
+                {/* Orders & Categories Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+                    <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
+                        <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <IndianRupee size={18} className="text-green-500" />
+                            Order Statistics
+                        </h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="p-4 bg-gray-50 rounded-xl">
+                                <p className="text-2xl font-black text-gray-900">{statsData.orders?.total || 0}</p>
+                                <p className="text-xs font-bold text-gray-500">Total Orders</p>
+                            </div>
+                            <div className="p-4 bg-gray-50 rounded-xl">
+                                <p className="text-2xl font-black text-gray-900">₹{Number(statsData.orders?.avgValue || 0).toLocaleString()}</p>
+                                <p className="text-xs font-bold text-gray-500">Avg Order Value</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
+                        <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <FileBox size={18} className="text-purple-500" />
+                            Top Categories
+                        </h3>
+                        <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {statsData.categories?.map((cat, i) => (
+                                <div key={i} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                    <span className="text-sm font-medium text-gray-700 capitalize">{cat.name || 'Unknown'}</span>
+                                    <span className="text-sm font-bold text-purple-600">{cat.count}</span>
+                                </div>
+                            ))}
+                            {!statsData.categories?.length && (
+                                <p className="text-sm text-gray-400">No category data yet</p>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Infrastructure Tracker */}
                 <div>
                     <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-3">
                         <span className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center"><Database size={14} className="text-gray-600" /></span>
-                        Infrastructure Limits Tracker
+                        Infrastructure & Storage
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 xl:gap-8 mb-10">
                         <StatCard
-                            title="MongoDB Atlas (Free M0)"
+                            title="MongoDB Atlas"
                             value={`${storage.mongodb.dataSize} MB`}
-                            subValue={`Limit: ${storage.mongodb.totalLimit || 512} MB • Storage used: ${storage.mongodb.storageSize} MB`}
+                            subValue={`Limit: ${storage.mongodb.totalLimit || 512} MB • Used: ${storage.mongodb.storageSize} MB`}
                             icon={Database}
                             color="green"
+                            isWarning={parseFloat(storage.mongodb.dataSize || 0) > 450}
                         />
                         <StatCard
-                            title="Cloudinary Previews"
+                            title="Cloudinary (Previews)"
                             value={storage.cloudinary.status === 'Active' ? `${storage.cloudinary.storage} MB` : 'Offline'}
-                            subValue={storage.cloudinary.status === 'Active' ? `Bandwidth: ${storage.cloudinary.bandwidth} MB • Plan: ${storage.cloudinary.plan}` : storage.cloudinary.error || 'API details missing.'}
+                            subValue={storage.cloudinary.status === 'Active' ? `Limit: ${storage.cloudinary.storageLimit || 'Custom'} • Bandwidth: ${storage.cloudinary.bandwidth} MB` : storage.cloudinary.error || 'API missing'}
                             icon={ImageIcon}
                             color="purple"
                             isWarning={storage.cloudinary.status !== 'Active'}
                         />
                         <StatCard
-                            title="Appwrite CNC Storage"
+                            title="Appwrite (Small Files)"
                             value={storage.appwrite.status === 'Active' ? `${storage.appwrite.totalSize} MB` : 'Offline'}
                             subValue={
                                 storage.appwrite.status === 'Active'
-                                    ? `Files: ${storage.appwrite.totalFiles} • Bucket: ${storage.appwrite.bucketName || storage.appwrite.bucketId} • Max file: ${storage.appwrite.maxFileSizeMb} MB`
-                                    : storage.appwrite.error || 'Bucket details missing.'
+                                    ? `Limit: ${storage.appwrite.storageLimit || 'Unlimited'} • ${storage.appwrite.totalFiles} files`
+                                    : storage.appwrite.error || 'Not configured'
                             }
                             icon={HardDrive}
                             color="orange"
                             isWarning={storage.appwrite.status !== 'Active'}
                         />
                         <StatCard
-                            title="Legacy R2 Storage"
+                            title="R2 Storage (Large Files)"
                             value={storage.r2.status === 'Active' ? `${storage.r2.totalSize} MB` : 'Inactive'}
-                            subValue={storage.r2.status === 'Active' ? `Legacy files: ${storage.r2.totalFiles}` : storage.r2.error || 'Not used by current upload flow.'}
+                            subValue={
+                                storage.r2.status === 'Active'
+                                    ? `Limit: ${storage.r2.storageLimit || '1 GB Free'} • ${storage.r2.totalFiles} files (>25MB)`
+                                    : storage.r2.error || 'Ready for large files'
+                            }
                             icon={Cloud}
-                            color="gray"
+                            color={storage.r2.status === 'Active' ? 'blue' : 'gray'}
                             isWarning={storage.r2.status === 'Error'}
                         />
                     </div>
                 </div>
 
                 {/* Admin Note */}
-                <div className="bg-amber-50 border border-amber-200 rounded-[1.5rem] p-6 sm:p-8 flex items-start gap-4 shadow-sm">
-                    <div className="p-3 bg-amber-100 rounded-xl shrink-0">
-                        <AlertTriangle className="text-amber-600" size={24} />
+                <div className="bg-blue-50 border border-blue-200 rounded-[1.5rem] p-6 sm:p-8 flex items-start gap-4 shadow-sm">
+                    <div className="p-3 bg-blue-100 rounded-xl shrink-0">
+                        <AlertTriangle className="text-blue-600" size={24} />
                     </div>
                     <div>
-                        <h3 className="font-bold text-amber-900 mb-1">Admin Infrastructure Note</h3>
-                        <div className="text-sm font-medium text-amber-800/80 leading-relaxed max-w-4xl">
-                            The MongoDB Atlas Free cluster (M0) limits data to 512MB and implements heavy connection throttles. Preview images are stored on Cloudinary, and protected CNC source files now live on Appwrite. Monitor bucket size, max file-size policy, and Cloudinary media usage as uploads scale.
+                        <h3 className="font-bold text-blue-900 mb-1">Storage Architecture</h3>
+                        <div className="text-sm font-medium text-blue-800/80 leading-relaxed max-w-4xl">
+                            <strong>Cloudinary</strong>: Preview images • 
+                            <strong> Appwrite</strong>: Files ≤25MB • 
+                            <strong> R2</strong>: Files >25MB (primary for large designs) • 
+                            <strong> MongoDB</strong>: Data storage. Monitor usage to prevent quota limits.
                         </div>
                     </div>
                 </div>

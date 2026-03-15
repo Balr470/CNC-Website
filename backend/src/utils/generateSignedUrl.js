@@ -3,6 +3,9 @@ const logger = require('../config/logger');
 const cloudinary = require('../config/cloudinary');
 const { configError, isConfigured, tokens } = require('../config/appwrite');
 const { parseAppwriteFileKey } = require('./fileStorageKey');
+const { GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const r2 = require('../config/storage');
 
 const getCloudinaryPrivateDownloadUrl = (fileKey, expiry) => {
     if (!fileKey || !path.extname(fileKey || '')) {
@@ -61,6 +64,33 @@ const getAppwriteDownloadDescriptor = async (fileKey, expiry) => {
     };
 };
 
+const getR2DownloadDescriptor = async (fileKey, expiry) => {
+    if (!process.env.R2_BUCKET_NAME || !process.env.R2_ENDPOINT) {
+        throw new Error('R2 storage is not configured');
+    }
+
+    try {
+        const command = new GetObjectCommand({
+            Bucket: process.env.R2_BUCKET_NAME,
+            Key: fileKey,
+        });
+        
+        const signedUrl = await getSignedUrl(r2, command, { expiresIn: expiry });
+        
+        return {
+            provider: 'r2',
+            downloadUrl: signedUrl,
+        };
+    } catch (error) {
+        logger.error({
+            message: 'Error generating R2 download URL',
+            error: error.message,
+            fileKey,
+        });
+        throw new Error(error.message || 'Failed to generate R2 download URL');
+    }
+};
+
 const generateSignedUrl = async (fileKey) => {
     if (!fileKey || typeof fileKey !== 'string') {
         throw new Error('Invalid file key');
@@ -76,6 +106,11 @@ const generateSignedUrl = async (fileKey) => {
     }
 
     const expiry = parseInt(process.env.SIGNED_URL_EXPIRY, 10) || 300;
+
+    // Check for R2 file keys (starts with 'designs/')
+    if (sanitizedKey.startsWith('designs/')) {
+        return getR2DownloadDescriptor(sanitizedKey, expiry);
+    }
 
     if (sanitizedKey.startsWith('appwrite/')) {
         return getAppwriteDownloadDescriptor(sanitizedKey, expiry);
