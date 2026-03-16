@@ -29,6 +29,11 @@ const designSchema = new mongoose.Schema({
         default: 'other' // A safe default for existing items
     },
     previewImages: [String],
+    format: {
+        type: String,
+        enum: ['STL', 'DXF', 'SVG', 'OBJ', 'NC', 'GCODE', 'TAP', 'NGC', 'CMX', 'RLF', 'ART', 'RAR', 'RAR4', 'ZIP'],
+        default: 'DXF'
+    },
     fileKey: {
         type: String,
         required: [true, 'Source file key is required'],

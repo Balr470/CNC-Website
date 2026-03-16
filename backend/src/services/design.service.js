@@ -4,12 +4,17 @@ const cloudinary = require('../config/cloudinary');
 const uploadToAppwrite = require('../utils/uploadToAppwrite');
 const uploadToR2 = require('../utils/uploadToR2');
 const { deleteDesignFiles } = require('../utils/deleteStorageFiles');
+const { getDesignFormatFromFileKey } = require('../utils/designFormat');
 
 const LARGE_FILE_THRESHOLD = 25 * 1024 * 1024; // 25MB
 
 // Serialize design to remove sensitive fields
 const serializeDesign = (design) => {
     const obj = design.toObject();
+    // Use stored format if available, otherwise calculate from fileKey
+    if (!obj.format) {
+        obj.format = getDesignFormatFromFileKey(obj.fileKey);
+    }
     delete obj.fileKey;
     return obj;
 };
@@ -200,6 +205,9 @@ exports.createDesign = async (designData, mainImageFile, additionalImageFiles, c
         );
     }
 
+    // Extract format from filename
+    const format = getDesignFormatFromFileKey(fileKey);
+
     // Save to database
     return await Design.create({
         title: designData.title,
@@ -208,6 +216,7 @@ exports.createDesign = async (designData, mainImageFile, additionalImageFiles, c
         category: designData.category || 'other',
         previewImages: allPreviewImages,
         fileKey,
+        format,
         uploadedBy: userId
     });
 };
