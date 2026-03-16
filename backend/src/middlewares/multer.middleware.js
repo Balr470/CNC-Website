@@ -36,7 +36,12 @@ const hybridStorage = {
         file.stream.on('data', (chunk) => chunks.push(chunk));
         file.stream.on('end', () => {
             file.buffer = Buffer.concat(chunks);
-            cb(null, { buffer: file.buffer });
+            // Preserve the original filename and mimetype
+            cb(null, { 
+                buffer: file.buffer,
+                originalname: file.originalname,
+                mimetype: file.mimetype
+            });
         });
         file.stream.on('error', cb);
     },

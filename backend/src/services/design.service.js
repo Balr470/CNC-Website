@@ -207,9 +207,10 @@ exports.createDesign = async (designData, mainImageFile, additionalImageFiles, c
 
     // Extract format from filename
     const format = getDesignFormatFromFileKey(fileKey);
+    console.log('Creating design with format:', format, 'fileKey:', fileKey, 'cncFile.originalname:', cncFile.originalname);
 
     // Save to database
-    return await Design.create({
+    const newDesign = await Design.create({
         title: designData.title,
         description: designData.description,
         price: Number(designData.price),
@@ -219,6 +220,13 @@ exports.createDesign = async (designData, mainImageFile, additionalImageFiles, c
         format,
         uploadedBy: userId
     });
+
+    // Make sure format is in the response
+    const designObj = newDesign.toObject();
+    designObj.format = format;
+    delete designObj.fileKey;
+    
+    return designObj;
 };
 
 // Update a design
