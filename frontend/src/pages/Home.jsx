@@ -6,8 +6,7 @@ import { AuthContext } from '../context/AuthContext';
 import PriceTag from '../components/PriceTag';
 import { Search, PackageOpen, Star, ChevronDown, ChevronLeft, ChevronRight, X, Heart } from 'lucide-react';
 import toast from 'react-hot-toast';
-import heroImg from '../assets/wood_cnc_hero.png';
-import mainImg from '../assets/main_image.jpeg';
+import logoImg from '../assets/logo.ico';
 import DesignCard from '../components/DesignCard';
 import SEO from '../components/SEO';
 import { categoryGroups } from '../content/categories';
@@ -201,7 +200,7 @@ const Home = () => {
                         <div className="w-full max-w-[520px] aspect-[4/3] rounded-[2rem] bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center shadow-2xl shadow-gray-300/50 p-6 overflow-hidden relative group">
                             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[size:20px_20px]"></div>
                             <img
-                                src={mainImg}
+                                src={logoImg}
                                 alt="Wood CNC Carving"
                                 className="w-full h-full object-fit rounded-2xl shadow-lg mix-blend-multiply opacity-90 group-hover:scale-105 transition-transform duration-700 ease-out"
                             />
