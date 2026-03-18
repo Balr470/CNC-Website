@@ -36,7 +36,14 @@ exports.getDashboardStats = async () => {
     // 4. Cloudinary Usage
     let cloudinaryStats = { status: 'Not Configured', bandwidth: 0, storage: 0, credits: 0, storageLimit: '25 GB' };
     try {
-        if (process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_KEY !== 'your_cloudinary_api_key_goes_here') {
+        const config = cloudinary.config();
+        const apiKey = config.api_key;
+        const apiSecret = config.api_secret;
+        const cloudName = config.cloud_name;
+
+        const isMissing = (val) => !val || String(val).startsWith('your_') || String(val).includes('_here');
+
+        if (!isMissing(apiKey) && !isMissing(apiSecret) && !isMissing(cloudName)) {
             const usage = await cloudinary.api.usage();
             cloudinaryStats = {
                 status: 'Active',
@@ -48,7 +55,8 @@ exports.getDashboardStats = async () => {
                 credits: usage.credits.usage
             };
         } else {
-            cloudinaryStats.status = 'Missing API Key';
+            cloudinaryStats.status = 'Missing Config';
+            cloudinaryStats.error = !apiKey ? 'API Key missing' : (!apiSecret ? 'API Secret missing' : 'Cloud Name missing');
         }
     } catch (err) {
         cloudinaryStats = { status: 'Error', error: err.message };

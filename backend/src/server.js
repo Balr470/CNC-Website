@@ -50,13 +50,14 @@ const envToValidate = process.env.NODE_ENV === 'production'
 const missing = envToValidate.filter((envVar) => isPlaceholderValue(process.env[envVar]));
 
 if (process.env.NODE_ENV === 'production' && process.env.AUTH_COOKIE_SAME_SITE === 'none' && !process.env.AUTH_COOKIE_DOMAIN) {
-    logger.error('FATAL: AUTH_COOKIE_DOMAIN is required when AUTH_COOKIE_SAME_SITE is set to "none" in production.');
+    console.error('FATAL: AUTH_COOKIE_DOMAIN is required when AUTH_COOKIE_SAME_SITE is set to "none" in production.');
     process.exit(1);
 }
 
 if (missing.length > 0) {
+    console.error(`FATAL: Missing required environment variables: ${missing.join(', ')}`);
+    console.error('Please check your environment configuration and try again.');
     logger.error(`FATAL: Missing required environment variables: ${missing.join(', ')}`);
-    logger.error('Please check your environment configuration and try again.');
     process.exit(1);
 }
 
@@ -113,3 +114,5 @@ process.on('SIGTERM', () => {
         mongoose.connection.close(false).finally(() => process.exit(0));
     });
 });
+
+

@@ -129,7 +129,10 @@ const seedDB = async () => {
         const usersToCreate = [
             { name: 'Admin One', email: 'admin1@cnc.com', password: 'password123', role: 'admin' },
             { name: 'Admin Two', email: 'admin2@cnc.com', password: 'password123', role: 'admin' },
-            { name: 'Aaditya', email: 'aaditya@example.com', password: 'password123', role: 'user' },
+            { name: 'Aaditya', email: 'aaditya@example.com', password: 'password123', role: 'admin' },
+            { name: 'User One', email: 'user1@cnc.com', password: 'password123', role: 'user' },
+            { name: 'User Two', email: 'user2@cnc.com', password: 'password123', role: 'user' },
+            { name: 'User Three', email: 'user3@cnc.com', password: 'password123', role: 'user' },
         ];
 
         const userDocs = [];
